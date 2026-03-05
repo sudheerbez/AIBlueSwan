@@ -112,12 +112,12 @@ class SafeCodeExecutor:
             sys.stdout = stdout_capture
             sys.stderr = stderr_capture
 
-            # Set timeout (Unix only — silently skip on Windows)
+            # Set timeout (Unix only — silently skip on Windows or non-main threads)
             try:
                 old_handler = signal.signal(signal.SIGALRM, _timeout_handler)
                 signal.alarm(self.timeout_seconds)
-            except (AttributeError, OSError):
-                old_handler = None  # Windows / unsupported
+            except (AttributeError, OSError, ValueError):
+                old_handler = None  # Windows / unsupported / not main thread
 
             exec(compile(code, "<autoquant-sandbox>", "exec"), sandbox_globals)  # noqa: S102
 
@@ -126,7 +126,7 @@ class SafeCodeExecutor:
                 signal.alarm(0)
                 if old_handler is not None:
                     signal.signal(signal.SIGALRM, old_handler)
-            except (AttributeError, OSError):
+            except (AttributeError, OSError, ValueError):
                 pass
 
             # Attempt to extract a conventional return value
