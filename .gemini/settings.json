@@ -1,0 +1,8 @@
+{
+  "general": {
+    "defaultApprovalMode": "auto_edit"
+  },
+  "experimental": {
+    "plan": true
+  }
+}
