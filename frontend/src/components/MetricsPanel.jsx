@@ -33,13 +33,22 @@ export default function MetricsPanel({ metrics, status, iteration }) {
     ];
 
     return (
-        <div className="metrics-grid">
+        <>
             {cards.map(card => (
-                <div key={card.label} className="glass-card metric-card">
-                    <div className="metric-label">{card.label}</div>
-                    <div className={`metric-value ${card.color}`}>{card.value}</div>
+                <div key={card.label} className="rounded-xl border border-border bg-card text-card-foreground shadow-sm">
+                    <div className="p-6 flex flex-row items-center justify-between space-y-0 pb-2">
+                        <h3 className="tracking-tight text-sm font-medium">{card.label}</h3>
+                    </div>
+                    <div className="p-6 pt-0">
+                        <div className={`text-2xl font-bold ${card.color === 'positive' ? 'text-green-600 dark:text-green-500' :
+                                card.color === 'negative' ? 'text-red-600 dark:text-red-500' :
+                                    'text-foreground'
+                            }`}>
+                            {card.value}
+                        </div>
+                    </div>
                 </div>
             ))}
-        </div>
+        </>
     );
 }

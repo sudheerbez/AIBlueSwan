@@ -9,6 +9,23 @@ import asyncio
 import json
 import sys
 import os
+import builtins
+
+_orig_print = builtins.print
+
+def _safe_print(*args, **kwargs):
+    safe_args = []
+    for arg in args:
+        if isinstance(arg, str):
+            safe_args.append(arg.encode('ascii', 'replace').decode('ascii'))
+        else:
+            safe_args.append(arg)
+    try:
+        _orig_print(*safe_args, **kwargs)
+    except Exception:
+        pass
+
+builtins.print = _safe_print
 
 # Add project root to path so src/ imports work
 sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
@@ -52,6 +69,8 @@ class PipelineStartRequest(BaseModel):
     capital: float = Field(default=100_000.0, ge=1000, le=10_000_000)
     max_iterations: int = Field(default=5, ge=1, le=50)
     universe: str = Field(default="NASDAQ-100")
+    llm_provider: str = Field(default="OpenAI")
+    api_key: Optional[str] = None
 
 
 class PipelineStartResponse(BaseModel):
@@ -76,6 +95,8 @@ async def start(req: PipelineStartRequest):
         capital=req.capital,
         max_iterations=req.max_iterations,
         universe=req.universe,
+        llm_provider=req.llm_provider,
+        api_key=req.api_key,
     )
     return PipelineStartResponse(
         run_id=run.run_id,

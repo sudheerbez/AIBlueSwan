@@ -37,7 +37,7 @@ critique as JSON:
 }
 
 Decision rules:
-- "end" if Sharpe > 1.5 AND MaxDD > -20% AND WFO score > 1.0
+- "end" if Sharpe > 2.0 AND MaxDD > -15% AND WFO score > 1.0
 - "fix_code" if the backtest errored or produced 0 trades
 - "evolve_hypothesis" otherwise
 
@@ -56,8 +56,8 @@ class AnalysisAgent(BaseAgent):
     decision for the LangGraph conditional edge.
     """
 
-    def __init__(self, model_name: str = "gpt-4o") -> None:
-        super().__init__(model_name)
+    def __init__(self) -> None:
+        super().__init__()
         self.settings = Settings()
 
     def run(self, state: GraphState) -> GraphState:
@@ -65,19 +65,20 @@ class AnalysisAgent(BaseAgent):
         result = BacktestResult.model_validate_json(results_json)
         iteration = state.get("iteration_count", 0)
         max_iter = state.get("max_iterations", 5)
+        llm_provider = state.get("llm_provider", "OpenAI")
 
         print(
             f"[AnalysisAgent] Evaluating | Sharpe={result.sharpe_ratio:.3f} | "
-            f"MDD={result.max_drawdown:.2%} | WFO={result.wfo_score:.3f}"
+            f"MDD={result.max_drawdown:.2%} | WFO={result.wfo_score:.3f} | LLM={llm_provider}"
         )
 
-        critique = self._generate_critique(result, state)
+        critique = self._generate_critique(result, state, llm_provider)
 
         # Force termination if max iterations reached
         if iteration + 1 >= max_iter and critique.decision != "end":
             critique.decision = "end"
             critique.suggestions.append(
-                f"Max iterations ({max_iter}) reached — terminating pipeline."
+                f"Max iterations ({max_iter}) reached - terminating pipeline."
             )
 
         # Update state
@@ -117,22 +118,12 @@ class AnalysisAgent(BaseAgent):
         self,
         result: BacktestResult,
         state: GraphState,
+        llm_provider: str,
     ) -> Critique:
-        """Try LLM first; fall back to rule-based mock."""
-        if os.getenv("OPENAI_API_KEY"):
-            try:
-                return self._llm_critique(result, state)
-            except Exception as exc:
-                print(f"[AnalysisAgent] LLM call failed ({exc}), using rule-based critique.")
-
-        return self._rule_based_critique(result, state)
-
-    def _llm_critique(self, result: BacktestResult, state: GraphState) -> Critique:
-        """Generate critique via LLM."""
-        from langchain_openai import ChatOpenAI
+        """Generate critique via LLM exclusively."""
         from langchain_core.messages import SystemMessage, HumanMessage
 
-        llm = ChatOpenAI(model=self.model_name, temperature=0.3)
+        llm = self.get_llm(llm_provider, temperature=0.3)
 
         user_msg = (
             f"Backtest Results:\n"
@@ -152,86 +143,3 @@ class AnalysisAgent(BaseAgent):
         ])
 
         return Critique.model_validate_json(response.content)
-
-    def _rule_based_critique(
-        self,
-        result: BacktestResult,
-        state: GraphState,
-    ) -> Critique:
-        """Deterministic rule-based critique for scaffold testing."""
-        suggestions = []
-        biases = []
-
-        # Check for backtest errors
-        has_error = any("[ERROR]" in log for log in result.logs)
-        status = state.get("status", "")
-
-        if has_error or status == "backtest_error":
-            return Critique(
-                is_success=False,
-                decision="fix_code",
-                suggestions=[
-                    "The backtest encountered a runtime error.",
-                    "Check the signal_generator function for bugs.",
-                    "Ensure all required columns (open, high, low, close, volume) are accessed correctly.",
-                ],
-                potential_biases=["Cannot assess biases — code failed to execute."],
-            )
-
-        if result.trades_count == 0:
-            return Critique(
-                is_success=False,
-                decision="fix_code",
-                suggestions=[
-                    "No trades were generated — the entry/exit conditions may be too restrictive.",
-                    "Relax the RSI / SMA thresholds.",
-                    "Check for NaN values in the signal column due to insufficient lookback period.",
-                ],
-                potential_biases=["No trades executed — cannot evaluate."],
-            )
-
-        # Assess metrics
-        is_success = (
-            result.sharpe_ratio > self.settings.min_sharpe_ratio
-            and result.max_drawdown > self.settings.max_drawdown_limit  # MDD is negative
-            and result.wfo_score > 1.0
-        )
-
-        if result.sharpe_ratio < 0.5:
-            suggestions.append("Sharpe ratio is very low. Consider a fundamentally different strategy.")
-        elif result.sharpe_ratio < self.settings.min_sharpe_ratio:
-            suggestions.append(
-                f"Sharpe ({result.sharpe_ratio:.2f}) below target ({self.settings.min_sharpe_ratio}). "
-                "Try adding a volatility filter or stop-loss."
-            )
-
-        if result.max_drawdown < self.settings.max_drawdown_limit:
-            suggestions.append(
-                f"Max drawdown ({result.max_drawdown:.1%}) exceeds limit "
-                f"({self.settings.max_drawdown_limit:.0%}). Add position sizing or risk parity."
-            )
-
-        if result.volatility > 0.30:
-            suggestions.append("Excessive volatility. Consider hedging with a market-neutral overlay.")
-
-        if result.wfo_score < 0.5:
-            suggestions.append(
-                "Low WFO score suggests overfitting to in-sample data. "
-                "Simplify the factor model or use a longer lookback."
-            )
-            biases.append("Possible overfitting — WFO instability detected.")
-
-        if not suggestions:
-            suggestions.append("Strategy meets all performance targets.")
-
-        biases.extend([
-            "Survivorship bias — NASDAQ-100 reconstitutions not accounted for.",
-            "Transaction costs modelled at flat rate; real costs vary by market cap.",
-        ])
-
-        return Critique(
-            is_success=is_success,
-            decision="end" if is_success else "evolve_hypothesis",
-            suggestions=suggestions,
-            potential_biases=biases,
-        )

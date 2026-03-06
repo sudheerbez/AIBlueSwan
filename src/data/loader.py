@@ -61,6 +61,7 @@ class DataLoader:
         start: str = "2020-01-01",
         end: Optional[str] = None,
         source: str = "yfinance",
+        ignore_cache: bool = False,
     ) -> Dict[str, pd.DataFrame]:
         """
         Load daily OHLCV data for each *ticker* in the universe.
@@ -74,6 +75,8 @@ class DataLoader:
         source : str
             Primary data source: ``"yfinance"`` (default),
             ``"alpha_vantage"``, or ``"fmp"``.
+        ignore_cache : bool
+            If True, always fetches fresh live data and overwrites cache.
 
         Returns
         -------
@@ -86,7 +89,7 @@ class DataLoader:
 
         universe: Dict[str, pd.DataFrame] = {}
         for ticker in tickers:
-            df = self._load_single(ticker, start, end, source)
+            df = self._load_single(ticker, start, end, source, ignore_cache)
             if df is not None and not df.empty:
                 universe[ticker] = df
 
@@ -100,15 +103,18 @@ class DataLoader:
         start: str,
         end: str,
         source: str,
+        ignore_cache: bool = False,
     ) -> Optional[pd.DataFrame]:
-        """Load one ticker, checking cache first."""
+        """Load one ticker, checking cache first (unless ignored)."""
         # 1. Try cache
-        cached = self._read_cache(ticker)
-        if cached is not None:
-            mask = (cached.index >= pd.Timestamp(start)) & (cached.index <= pd.Timestamp(end))
-            filtered = cached.loc[mask]
-            if not filtered.empty:
-                return filtered
+        if not ignore_cache:
+            cached = self._read_cache(ticker)
+            if cached is not None:
+                mask = (cached.index >= pd.Timestamp(start)) & (cached.index <= pd.Timestamp(end))
+                filtered = cached.loc[mask]
+                if not filtered.empty:
+                    # Optional: Could check if the cached data is recent enough, but rely on ignore_cache for now
+                    return filtered
 
         # 2. Fetch from primary source
         try:
@@ -182,6 +188,10 @@ class DataLoader:
 
         if not isinstance(df.index, pd.DatetimeIndex):
             df.index = pd.to_datetime(df.index)
+
+        # Strip timezone awareness to fix Timestamp comparisons
+        if df.index.tz is not None:
+            df.index = df.index.tz_localize(None)
 
         df = df.sort_index()
         return df

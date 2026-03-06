@@ -33,10 +33,9 @@ class ValidationAgent(BaseAgent):
 
     def __init__(
         self,
-        model_name: str = "gpt-4o",
         use_wfo: bool = True,
     ) -> None:
-        super().__init__(model_name)
+        super().__init__()
         self.use_wfo = use_wfo
         self.settings = Settings()
 
@@ -48,7 +47,7 @@ class ValidationAgent(BaseAgent):
 
         # If code was flagged invalid by ImplementationAgent, skip backtest
         if not factor_code.is_valid:
-            print("[ValidationAgent] Skipping backtest — code is invalid.")
+            print("[ValidationAgent] Skipping backtest - code is invalid.")
             empty = BacktestResult(
                 logs=[f"[SKIP] Code validation failed: {factor_code.validation_error}"],
             )
@@ -57,7 +56,8 @@ class ValidationAgent(BaseAgent):
             return state
 
         # Load price data
-        price_data = self._load_data()
+        universe_name = state.get("universe", "NASDAQ-100")
+        price_data = self._load_data(universe_name)
 
         # Build executable signal function from the factor code string
         signal_fn = self._build_signal_fn(factor_code.python_code)
@@ -110,23 +110,34 @@ class ValidationAgent(BaseAgent):
 
     # -- helpers -------------------------------------------------------------
 
-    def _load_data(self) -> pd.DataFrame:
+    def _load_data(self, universe_name: str) -> pd.DataFrame:
         """
-        Load price data for backtesting.
+        Load live price data for backtesting via yfinance.
+        Maps the selected universe to its corresponding ETF.
+        """
+        ticker_map = {
+            "NASDAQ-100": "QQQ",
+            "S&P 500": "SPY",
+            "DJIA-30": "DIA",
+        }
+        ticker = ticker_map.get(universe_name, "SPY")
 
-        Uses a representative NASDAQ-100 stock (AAPL) for the scaffold.
-        In production, this would load the full universe via DataLoader.
-        """
         try:
             from src.data.loader import DataLoader
             loader = DataLoader()
-            universe = loader.load_universe(tickers=["AAPL"], start="2018-01-01")
-            if "AAPL" in universe and not universe["AAPL"].empty:
-                return universe["AAPL"]
+            print(f"[ValidationAgent] Fetching live data for {ticker} ({universe_name}) via yfinance...")
+            
+            universe = loader.load_universe(tickers=[ticker], start="2018-01-01", ignore_cache=True)
+            if ticker in universe and not universe[ticker].empty:
+                print(f"[ValidationAgent] Successfully loaded {len(universe[ticker])} bars of live data for {ticker}.")
+                return universe[ticker]
+            else:
+                print(f"[ValidationAgent] Warning: DataLoader returned empty for {ticker}.")
         except Exception as exc:
-            print(f"[ValidationAgent] DataLoader failed ({exc}), using synthetic data.")
+            print(f"[ValidationAgent] DataLoader failed ({exc}).")
 
-        # Fallback: synthetic data for scaffold testing
+        # Fallback: synthetic data ONLY if live fetch fails completely
+        print("[ValidationAgent] Using synthetic data as absolute fallback.")
         return self._generate_synthetic_data()
 
     @staticmethod

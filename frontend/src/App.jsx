@@ -10,6 +10,7 @@ const DEFAULT_CONFIG = {
   capital: 100000,
   maxIterations: 5,
   universe: 'NASDAQ-100',
+  openaiApiKey: '',
 };
 
 export default function App() {
@@ -96,149 +97,218 @@ export default function App() {
   }, []);
 
   return (
-    <div className="app-layout">
-      {/* Header */}
-      <header className="app-header">
-        <div className="logo">
-          <div className="logo-icon">AQ</div>
-          <h1>AutoQuant</h1>
-        </div>
-        <div className="header-status">
-          {status === 'running' && (
-            <span className="status-badge running">
-              <span className="status-dot" />
-              Running · Iteration {iteration + 1}
-            </span>
-          )}
-          {status === 'success' && (
-            <span className="status-badge success">
-              <span className="status-dot" />
-              Complete
-            </span>
-          )}
-          {status === 'failed' && (
-            <span className="status-badge failed">
-              <span className="status-dot" />
-              Failed
-            </span>
-          )}
-          {status === 'idle' && (
-            <span className="status-badge pending">
-              Ready
-            </span>
-          )}
-        </div>
-      </header>
-
+    <div className="flex h-screen w-full bg-background text-foreground overflow-hidden font-sans">
       {/* Sidebar */}
-      <aside className="app-sidebar">
-        <div className="controls-section">
-          <h3>Pipeline Config</h3>
-          <div className="input-group">
-            <label>Initial Capital ($)</label>
-            <input
-              type="number"
-              value={config.capital}
-              onChange={e => setConfig(c => ({ ...c, capital: e.target.value }))}
-              disabled={status === 'running'}
-              id="input-capital"
-            />
-          </div>
-          <div className="input-group">
-            <label>Max Iterations</label>
-            <input
-              type="number"
-              min="1"
-              max="50"
-              value={config.maxIterations}
-              onChange={e => setConfig(c => ({ ...c, maxIterations: e.target.value }))}
-              disabled={status === 'running'}
-              id="input-iterations"
-            />
-          </div>
-          <div className="input-group">
-            <label>Universe</label>
-            <select
-              value={config.universe}
-              onChange={e => setConfig(c => ({ ...c, universe: e.target.value }))}
-              disabled={status === 'running'}
-              id="select-universe"
-            >
-              <option value="NASDAQ-100">NASDAQ-100</option>
-              <option value="S&P-500">S&P 500</option>
-              <option value="DJIA-30">DJIA 30</option>
-            </select>
-          </div>
-
-          {status !== 'running' ? (
-            <button className="btn btn-primary" onClick={handleStart} id="btn-start">
-              ▶ Start Pipeline
-            </button>
-          ) : (
-            <button className="btn btn-danger" onClick={handleStop} id="btn-stop">
-              ■ Stop Pipeline
-            </button>
-          )}
+      <aside className="w-80 border-r border-border bg-card/50 flex flex-col pt-6 pb-6 px-4 overflow-y-auto shrink-0 shadow-sm z-10">
+        <div className="flex items-center gap-3 px-2 mb-8">
+          <div className="flex items-center justify-center w-8 h-8 rounded-lg bg-primary text-primary-foreground font-bold text-xs shadow-md">AQ</div>
+          <h1 className="text-xl font-bold tracking-tight">AI Blue Swan</h1>
         </div>
+        <div className="flex flex-col space-y-6">
+          <div className="space-y-4">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider px-2">AI Blue Swan Config</h3>
+            <div className="space-y-1.5 px-2">
+              <label htmlFor="input-capital" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Initial Capital ($)
+              </label>
+              <input
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                type="number"
+                value={config.capital}
+                onChange={e => setConfig(c => ({ ...c, capital: e.target.value }))}
+                disabled={status === 'running'}
+                id="input-capital"
+              />
+            </div>
+            <div className="space-y-1.5 px-2">
+              <label htmlFor="input-iterations" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                Max Iterations
+              </label>
+              <input
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                type="number"
+                min="1"
+                max="50"
+                value={config.maxIterations}
+                onChange={e => setConfig(c => ({ ...c, maxIterations: e.target.value }))}
+                disabled={status === 'running'}
+                id="input-iterations"
+              />
+            </div>
+            <div className="space-y-1.5 px-2">
+              <label htmlFor="select-universe" className="text-sm font-medium leading-none">
+                Universe
+              </label>
+              <select
+                className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                value={config.universe}
+                onChange={e => setConfig(c => ({ ...c, universe: e.target.value }))}
+                disabled={status === 'running'}
+                id="select-universe"
+              >
+                <option value="NASDAQ-100">NASDAQ-100</option>
+                <option value="S&P-500">S&P 500</option>
+                <option value="DJIA-30">DJIA 30</option>
+              </select>
+            </div>
+            <div className="space-y-1.5 px-2">
+              <label htmlFor="select-llm-provider" className="text-sm font-medium leading-none">
+                LLM Provider
+              </label>
+              <select
+                className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                value={config.llmProvider}
+                onChange={e => setConfig(c => ({ ...c, llmProvider: e.target.value }))}
+                disabled={status === 'running'}
+                id="select-llm-provider"
+              >
+                <option value="OpenAI">OpenAI</option>
+                <option value="Anthropic">Anthropic Claude</option>
+                <option value="Gemini">Google Gemini</option>
+              </select>
+            </div>
+            <div className="space-y-1.5 px-2">
+              <label htmlFor="input-api-key" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
+                {config.llmProvider === 'Anthropic' ? 'Claude' : config.llmProvider} API Key
+              </label>
+              <input
+                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
+                type="password"
+                placeholder={config.llmProvider === 'OpenAI' ? 'sk-proj-...' : config.llmProvider === 'Anthropic' ? 'sk-ant-...' : 'AIza...'}
+                value={config.apiKey}
+                onChange={e => setConfig(c => ({ ...c, apiKey: e.target.value }))}
+                disabled={status === 'running'}
+                id="input-api-key"
+              />
+            </div>
 
-        {/* History */}
-        <div className="controls-section" style={{ marginTop: 24 }}>
-          <h3>Run History</h3>
-          {history.length === 0 ? (
-            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-              No runs yet
-            </p>
-          ) : (
-            <ul className="history-list">
-              {history.slice(0, 10).map(run => (
-                <li
-                  key={run.run_id}
-                  className={`history-item ${run.run_id === runId ? 'active' : ''}`}
+            <div className="px-2 pt-2">
+              {status !== 'running' ? (
+                <button
+                  className="inline-flex w-full items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-primary text-primary-foreground shadow hover:bg-primary/90 h-9 px-4 py-2"
+                  onClick={handleStart}
+                  id="btn-start"
                 >
-                  <div className="run-id">#{run.run_id}</div>
-                  <div className="run-meta">
-                    <span className={`status-badge ${run.status}`} style={{ marginRight: 6 }}>
-                      <span className="status-dot" />
-                      {run.status}
-                    </span>
-                    ${Number(run.capital).toLocaleString()}
-                  </div>
-                </li>
-              ))}
-            </ul>
-          )}
+                  ▶ Start Pipeline
+                </button>
+              ) : (
+                <button
+                  className="inline-flex w-full items-center justify-center rounded-md text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:pointer-events-none disabled:opacity-50 bg-destructive text-destructive-foreground shadow-sm hover:bg-destructive/90 h-9 px-4 py-2"
+                  onClick={handleStop}
+                  id="btn-stop"
+                >
+                  ■ Stop Pipeline
+                </button>
+              )}
+            </div>
+          </div>
+
+          {/* History */}
+          <div className="space-y-4 px-2 mt-8">
+            <h3 className="text-sm font-semibold text-muted-foreground uppercase tracking-wider">Run History</h3>
+            {history.length === 0 ? (
+              <p className="text-sm text-muted-foreground">
+                No runs yet
+              </p>
+            ) : (
+              <ul className="space-y-2">
+                {history.slice(0, 10).map(run => (
+                  <li
+                    key={run.run_id}
+                    className={`flex flex-col gap-1 p-3 rounded-md border text-sm transition-colors ${run.run_id === runId
+                      ? 'border-primary bg-primary/5'
+                      : 'border-border bg-card hover:bg-accent/50 cursor-pointer'
+                      }`}
+                    onClick={() => {/* could set past run */ }}
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="font-mono text-xs text-muted-foreground">#{run.run_id.substring(0, 8)}</span>
+                      <span className={`inline-flex items-center rounded-full px-2 py-0.5 text-xs font-semibold transition-colors focus:outline-none focus:ring-2 focus:ring-ring focus:ring-offset-2 ${run.status === 'success' ? 'bg-green-100 text-green-800 dark:bg-green-900/30 dark:text-green-400' :
+                        run.status === 'failed' ? 'bg-red-100 text-red-800 dark:bg-red-900/30 dark:text-red-400' :
+                          'bg-yellow-100 text-yellow-800 dark:bg-yellow-900/30 dark:text-yellow-400'
+                        }`}>
+                        {run.status}
+                      </span>
+                    </div>
+                    <div className="font-medium">
+                      ${Number(run.capital).toLocaleString()}
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
+          </div>
         </div>
       </aside>
 
       {/* Main Content */}
-      <main className="app-main">
-        {status === 'idle' && !metrics ? (
-          <div className="empty-state">
-            <div className="empty-icon">🧬</div>
-            <h3>Ready to Discover Alpha</h3>
-            <p>
-              Configure your pipeline parameters and click
-              <strong> Start Pipeline</strong> to begin autonomous strategy research.
-            </p>
+      <main className="flex-1 flex flex-col overflow-y-auto bg-background/95">
+        {/* Header content moved to top of main */}
+        <header className="sticky top-0 z-20 flex h-14 items-center gap-4 border-b bg-background/95 px-6 backdrop-blur supports-[backdrop-filter]:bg-background/60">
+          <div className="ml-auto flex items-center gap-2">
+            {status === 'running' && (
+              <span className="inline-flex items-center gap-2 rounded-full border border-yellow-200 bg-yellow-100/50 px-3 py-1 text-sm font-medium text-yellow-800 dark:border-yellow-900/50 dark:bg-yellow-900/20 dark:text-yellow-400">
+                <span className="relative flex h-2 w-2">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-yellow-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-2 w-2 bg-yellow-500"></span>
+                </span>
+                Running · Iteration {iteration + 1}
+              </span>
+            )}
+            {status === 'success' && (
+              <span className="inline-flex items-center gap-2 rounded-full border border-green-200 bg-green-100/50 px-3 py-1 text-sm font-medium text-green-800 dark:border-green-900/50 dark:bg-green-900/20 dark:text-green-400">
+                <span className="h-2 w-2 rounded-full bg-green-500"></span>
+                Complete
+              </span>
+            )}
+            {status === 'failed' && (
+              <span className="inline-flex items-center gap-2 rounded-full border border-red-200 bg-red-100/50 px-3 py-1 text-sm font-medium text-red-800 dark:border-red-900/50 dark:bg-red-900/20 dark:text-red-400">
+                <span className="h-2 w-2 rounded-full bg-red-500"></span>
+                Failed
+              </span>
+            )}
+            {status === 'idle' && (
+              <span className="inline-flex items-center gap-2 rounded-full border px-3 py-1 text-sm font-medium text-muted-foreground">
+                <span className="h-2 w-2 rounded-full bg-muted-foreground/30"></span>
+                Ready
+              </span>
+            )}
           </div>
-        ) : (
-          <>
-            {/* Metrics */}
-            <MetricsPanel metrics={metrics} status={status} iteration={iteration} />
+        </header>
 
-            {/* Equity Chart + Strategy side by side */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16, marginBottom: 16 }}>
-              <EquityChart data={equityCurve} />
-              <StrategyCard hypothesis={hypothesis} />
+        <div className="flex-1 space-y-6 p-8">
+          {status === 'idle' && !metrics ? (
+            <div className="flex flex-col items-center justify-center h-full max-w-md mx-auto text-center space-y-4 text-muted-foreground">
+              <div className="flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 text-primary text-3xl mb-4">
+                🧬
+              </div>
+              <h3 className="text-2xl font-semibold text-foreground tracking-tight">Ready to Discover Alpha</h3>
+              <p className="text-sm">
+                Configure your pipeline parameters and click
+                <strong className="text-foreground"> Start Pipeline</strong> in the sidebar to begin autonomous strategy research.
+              </p>
             </div>
+          ) : (
+            <>
+              {/* Metrics */}
+              <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
+                <MetricsPanel metrics={metrics} status={status} iteration={iteration} />
+              </div>
 
-            {/* Critique + Progress Feed */}
-            <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 16 }}>
-              <CritiquePanel critique={critique} />
-              <ProgressFeed events={events} />
-            </div>
-          </>
-        )}
+              {/* Equity Chart + Strategy side by side */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <EquityChart data={equityCurve} />
+                <StrategyCard hypothesis={hypothesis} />
+              </div>
+
+              {/* Critique + Progress Feed */}
+              <div className="grid gap-4 md:grid-cols-2">
+                <CritiquePanel critique={critique} />
+                <ProgressFeed events={events} />
+              </div>
+            </>
+          )}
+        </div>
       </main>
     </div>
   );

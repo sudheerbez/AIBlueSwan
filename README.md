@@ -1,4 +1,4 @@
-# Project AutoQuant
+# Project AI Blue Swan
 
 > **The Machine That Makes The Machine** — An autonomous quantitative research engine that proposes, codes, backtests, and refines stock trading strategies for the US market.
 

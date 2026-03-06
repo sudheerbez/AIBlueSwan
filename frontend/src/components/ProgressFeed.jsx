@@ -57,37 +57,57 @@ export default function ProgressFeed({ events }) {
 
     if (!events || events.length === 0) {
         return (
-            <div className="glass-card progress-feed">
-                <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 12 }}>
-                    Live Progress
-                </h3>
-                <div className="empty-state" style={{ padding: '24px 0' }}>
-                    <div className="empty-icon" style={{ fontSize: '2rem' }}>🔄</div>
-                    <p style={{ fontSize: '0.78rem' }}>Events will appear here in real-time</p>
+            <div className="rounded-xl border border-border bg-card text-card-foreground shadow-sm p-6 flex flex-col min-h-[300px]">
+                <h3 className="tracking-tight text-lg font-semibold mb-4">Live Progress</h3>
+                <div className="flex flex-col items-center justify-center flex-1 text-muted-foreground space-y-4">
+                    <div className="text-4xl">🔄</div>
+                    <p className="text-sm">Events will appear here in real-time</p>
                 </div>
             </div>
         );
     }
 
     return (
-        <div className="glass-card progress-feed" ref={feedRef}>
-            <h3 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: 12 }}>
-                Live Progress ({events.length} events)
+        <div className="rounded-xl border border-border bg-card text-card-foreground shadow-sm p-6 flex flex-col h-[400px]">
+            <h3 className="tracking-tight text-lg font-semibold mb-6 flex-shrink-0">
+                Live Progress <span className="text-muted-foreground text-sm font-normal">({events.length} events)</span>
             </h3>
-            {events.map((event, i) => {
-                const agent = event.agent || (event.type === 'pipeline_started' ? 'System' : event.type === 'pipeline_finished' ? 'System' : 'System');
-                const dotClass = agentColors[agent] || 'system';
-                return (
-                    <div className="feed-item" key={i}>
-                        <div className={`feed-dot ${dotClass}`} />
-                        <div className="feed-content">
-                            <div className="feed-agent">{agent.replace('Agent', '')}</div>
-                            <div className="feed-message">{eventToMessage(event)}</div>
+            <div className="flex-1 overflow-y-auto space-y-4 pr-2" ref={feedRef}>
+                {events.map((event, i) => {
+                    const agent = event.agent || (event.type === 'pipeline_started' ? 'System' : event.type === 'pipeline_finished' ? 'System' : 'System');
+
+                    // Simple dot color logic based on agent
+                    const getDotColor = (agentName) => {
+                        if (agentName.includes('Synthesis')) return 'bg-purple-500';
+                        if (agentName.includes('Implementation')) return 'bg-blue-500';
+                        if (agentName.includes('Validation')) return 'bg-amber-500';
+                        if (agentName.includes('Analysis')) return 'bg-emerald-500';
+                        if (event.type === 'error') return 'bg-red-500';
+                        return 'bg-gray-400 dark:bg-gray-600';
+                    };
+
+                    return (
+                        <div className="flex items-start gap-3 text-sm relative" key={i}>
+                            <div className="mt-1.5 shrink-0">
+                                <div className={`h-2.5 w-2.5 rounded-full ${getDotColor(agent)} ring-4 ring-background`} />
+                            </div>
+                            {/* Vertical connecting line */}
+                            {i !== events.length - 1 && (
+                                <div className="absolute top-4 left-[0.3125rem] bottom-[-1rem] w-px bg-border" />
+                            )}
+                            <div className="flex-1 space-y-1 pb-2">
+                                <div className="flex items-center justify-between">
+                                    <span className="font-semibold text-foreground">{agent.replace('Agent', '')}</span>
+                                    <span className="text-xs text-muted-foreground tabular-nums">{formatTime(event.timestamp)}</span>
+                                </div>
+                                <div className="text-muted-foreground whitespace-pre-line leading-snug">
+                                    {eventToMessage(event)}
+                                </div>
+                            </div>
                         </div>
-                        <div className="feed-time">{formatTime(event.timestamp)}</div>
-                    </div>
-                );
-            })}
+                    );
+                })}
+            </div>
         </div>
     );
 }

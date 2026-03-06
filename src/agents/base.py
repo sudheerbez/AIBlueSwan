@@ -82,6 +82,7 @@ class GraphState(TypedDict, total=False):
     capital: float
     universe: str                       # e.g. "NASDAQ-100"
     status: str                         # initialized | running | success | failed
+    llm_provider: str                   # OpenAI | Anthropic | Gemini
 
     # -- Agent outputs (serialised JSON) ------------------------------------
     current_hypothesis: str             # JSON-serialised Hypothesis
@@ -119,8 +120,31 @@ class AgentState(BaseModel):
 class BaseAgent(ABC):
     """Base class for all pipeline agents."""
 
-    def __init__(self, model_name: str = "gpt-4o") -> None:
-        self.model_name = model_name
+    def __init__(self) -> None:
+        self.model_name_openai = "gpt-4o"
+        self.model_name_anthropic = "claude-3-7-sonnet-20250219"
+        self.model_name_gemini = "gemini-2.5-flash"
+
+    def get_llm(self, provider: str, temperature: float = 0.7):
+        """Instantiate the correct LangChain chat model based on provider."""
+        import os
+        if provider == "OpenAI":
+            from langchain_openai import ChatOpenAI
+            if not os.getenv("OPENAI_API_KEY"):
+                raise ValueError("OPENAI_API_KEY is not set.")
+            return ChatOpenAI(model=self.model_name_openai, temperature=temperature)
+        elif provider == "Anthropic":
+            from langchain_anthropic import ChatAnthropic
+            if not os.getenv("ANTHROPIC_API_KEY"):
+                raise ValueError("ANTHROPIC_API_KEY is not set.")
+            return ChatAnthropic(model=self.model_name_anthropic, temperature=temperature)
+        elif provider == "Gemini":
+            from langchain_google_genai import ChatGoogleGenerativeAI
+            if not os.getenv("GOOGLE_API_KEY"):
+                raise ValueError("GOOGLE_API_KEY is not set.")
+            return ChatGoogleGenerativeAI(model=self.model_name_gemini, temperature=temperature)
+        else:
+            raise ValueError(f"Unsupported LLM provider: {provider}")
 
     @abstractmethod
     def run(self, state: GraphState) -> GraphState:

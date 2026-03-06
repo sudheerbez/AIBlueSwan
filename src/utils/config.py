@@ -50,8 +50,8 @@ class Settings(BaseModel):
     wfo_test_days: int = 63              # ~1 quarter out-of-sample
 
     # Performance thresholds
-    min_sharpe_ratio: float = 1.5
-    max_drawdown_limit: float = -0.20     # -20%
+    min_sharpe_ratio: float = 2.0
+    max_drawdown_limit: float = -0.15     # -15%
     max_iterations: int = 5
 
     class Config:

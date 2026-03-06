@@ -16,21 +16,23 @@ from src.agents.base import BaseAgent, GraphState, Hypothesis, FactorCode
 # ---------------------------------------------------------------------------
 
 IMPLEMENTATION_SYSTEM_PROMPT = """\
-You are an expert Python quant developer.  Given a trading hypothesis,
-write a SINGLE function called ``signal_generator`` that:
+You are an elite Python quantitative developer. Given a highly advanced trading hypothesis, you must translate it into flawless, vectorized pandas/numpy code.
 
+Write a SINGLE function called ``signal_generator`` that:
 1. Accepts a pandas DataFrame ``df`` with columns: open, high, low, close, volume.
-2. Adds a ``signal`` column where:
+2. Constructs the complex statistical factors required by the hypothesis.
+3. Adds a ``signal`` column where:
    - +1 = go long / buy
    - -1 = go short / exit long
-   -  0 = no action
-3. Returns the modified DataFrame.
+   -  0 = no action (flat)
+4. Returns the modified DataFrame with the ``signal`` column correctly shifted to avoid lookahead bias.
 
 Rules:
-- Use ONLY pandas, numpy, and basic math.  No external API calls.
-- Include ALL helper functions inline (e.g. ``calculate_rsi``).
-- No I/O operations, no print statements, no imports of disallowed modules.
-- The function must be self-contained and deterministic.
+- Use advanced vectorized pandas and numpy operations. Avoid slow iterrows loop at all costs.
+- Include ALL helper functions inline (e.g. ``calculate_hurst``, ``rolling_zscore``).
+- Handle NaN values gracefully (e.g., using .ffill().fillna(0)).
+- No external API calls, I/O operations, or print statements. Only import pandas (as pd) and numpy (as np).
+- The function must be completely self-contained, deterministic, and highly optimized for backtesting.
 
 Respond ONLY with the raw Python code (no markdown fences).
 """
@@ -48,10 +50,11 @@ class ImplementationAgent(BaseAgent):
     def run(self, state: GraphState) -> GraphState:
         hypothesis_json = state.get("current_hypothesis", "{}")
         hypothesis = Hypothesis.model_validate_json(hypothesis_json)
+        llm_provider = state.get("llm_provider", "OpenAI")
 
-        print(f"[ImplementationAgent] Coding hypothesis: '{hypothesis.title}'...")
+        print(f"[ImplementationAgent] Coding hypothesis: '{hypothesis.title}' using {llm_provider}...")
 
-        factor_code = self._generate_code(hypothesis)
+        factor_code = self._generate_code(hypothesis, llm_provider)
 
         # Validate via sandbox
         factor_code = self._validate_code(factor_code)
@@ -68,22 +71,11 @@ class ImplementationAgent(BaseAgent):
 
     # -- code generation -----------------------------------------------------
 
-    def _generate_code(self, hypothesis: Hypothesis) -> FactorCode:
-        """Try LLM first; fall back to mock."""
-        if os.getenv("OPENAI_API_KEY"):
-            try:
-                return self._llm_generate(hypothesis)
-            except Exception as exc:
-                print(f"[ImplementationAgent] LLM call failed ({exc}), using mock.")
-
-        return self._mock_generate(hypothesis)
-
-    def _llm_generate(self, hypothesis: Hypothesis) -> FactorCode:
-        """Generate code via LLM."""
-        from langchain_openai import ChatOpenAI
+    def _generate_code(self, hypothesis: Hypothesis, llm_provider: str) -> FactorCode:
+        """Generate code via LLM exclusively."""
         from langchain_core.messages import SystemMessage, HumanMessage
 
-        llm = ChatOpenAI(model=self.model_name, temperature=0.0)
+        llm = self.get_llm(llm_provider, temperature=0.0)
 
         user_msg = (
             f"Hypothesis: {hypothesis.title}\n"
@@ -99,54 +91,6 @@ class ImplementationAgent(BaseAgent):
         return FactorCode(
             hypothesis_id=hypothesis.title,
             python_code=response.content.strip(),
-            required_libraries=["pandas", "numpy"],
-        )
-
-    @staticmethod
-    def _mock_generate(hypothesis: Hypothesis) -> FactorCode:
-        """Generate representative mock code matching the hypothesis logic."""
-        code = f'''\
-def calculate_rsi(series, period=14):
-    """Relative Strength Index."""
-    delta = series.diff()
-    gain = delta.where(delta > 0, 0.0).rolling(window=period).mean()
-    loss = (-delta.where(delta < 0, 0.0)).rolling(window=period).mean()
-    rs = gain / loss
-    rsi = 100.0 - (100.0 / (1.0 + rs))
-    return rsi
-
-def signal_generator(df):
-    """
-    Strategy: {hypothesis.title}
-    Logic:    {hypothesis.formula_logic}
-    """
-    df = df.copy()
-
-    # Calculate factors
-    df["rsi"] = calculate_rsi(df["close"], 14)
-    df["sma_200"] = df["close"].rolling(window=200).mean()
-    df["sma_50"] = df["close"].rolling(window=50).mean()
-    df["volatility"] = df["close"].pct_change().rolling(20).std()
-
-    # Generate signals
-    df["signal"] = 0
-
-    # Buy conditions
-    buy_cond = (df["rsi"] < 30) & (df["close"] > df["sma_200"])
-    df.loc[buy_cond, "signal"] = 1
-
-    # Sell conditions
-    sell_cond = (df["rsi"] > 70) | (df["close"] < df["sma_50"])
-    df.loc[sell_cond, "signal"] = -1
-
-    # Forward-fill positions (hold until exit signal)
-    df["signal"] = df["signal"].replace(0, np.nan).ffill().fillna(0).astype(int)
-
-    return df
-'''
-        return FactorCode(
-            hypothesis_id=hypothesis.title,
-            python_code=code,
             required_libraries=["pandas", "numpy"],
         )
 
