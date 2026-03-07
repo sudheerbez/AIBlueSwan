@@ -103,4 +103,5 @@ class SynthesisAgent(BaseAgent):
             HumanMessage(content=user_content),
         ])
 
-        return Hypothesis.model_validate_json(response.content)
+        cleaned_json = self.clean_llm_output(response.content)
+        return Hypothesis.model_validate_json(cleaned_json)

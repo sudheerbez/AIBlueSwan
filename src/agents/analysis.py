@@ -120,7 +120,31 @@ class AnalysisAgent(BaseAgent):
         state: GraphState,
         llm_provider: str,
     ) -> Critique:
-        """Generate critique via LLM exclusively."""
+        """Generate critique, selectively bypassing the LLM to save API quota."""
+        
+        # 1. Short-Circuit: Syntax Error or Crash (Save 1 LLM call)
+        if result.trades_count == 0 or any("[ERROR]" in log or "[SKIP]" in log for log in result.logs):
+            return Critique(
+                is_success=False,
+                decision="fix_code",
+                suggestions=[
+                    "The code failed to execute, hit a timeout, or produced 0 trades.",
+                    f"Check validation logs: {'; '.join(result.logs[-3:])}",
+                    "Fix any syntax or logic errors without changing the core hypothesis."
+                ],
+                potential_biases=[]
+            )
+
+        # 2. Short-Circuit: Perfect Strategy (Save 1 LLM call)
+        if result.sharpe_ratio >= 1.5 and result.max_drawdown >= -0.15 and result.wfo_score >= 1.0:
+            return Critique(
+                is_success=True,
+                decision="end",
+                suggestions=["Strategy meets all performance targets. Pipeline complete."],
+                potential_biases=[]
+            )
+
+        # 3. LLM Fallback: Strategy ran but needs evolution
         from langchain_core.messages import SystemMessage, HumanMessage
 
         llm = self.get_llm(llm_provider, temperature=0.3)
@@ -142,4 +166,5 @@ class AnalysisAgent(BaseAgent):
             HumanMessage(content=user_msg),
         ])
 
-        return Critique.model_validate_json(response.content)
+        cleaned_json = self.clean_llm_output(response.content)
+        return Critique.model_validate_json(cleaned_json)

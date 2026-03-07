@@ -31,7 +31,7 @@ Rules:
 - Use advanced vectorized pandas and numpy operations. Avoid slow iterrows loop at all costs.
 - Include ALL helper functions inline (e.g. ``calculate_hurst``, ``rolling_zscore``).
 - Handle NaN values gracefully (e.g., using .ffill().fillna(0)).
-- No external API calls, I/O operations, or print statements. Only import pandas (as pd) and numpy (as np).
+- CRITICAL: DO NOT WRITE ANY `import` STATEMENTS. The following modules are already pre-injected into your global namespace: `pd` (pandas), `np` (numpy), `scipy`, and `ta`. Use them directly.
 - The function must be completely self-contained, deterministic, and highly optimized for backtesting.
 
 Respond ONLY with the raw Python code (no markdown fences).
@@ -88,9 +88,10 @@ class ImplementationAgent(BaseAgent):
             HumanMessage(content=user_msg),
         ])
 
+        cleaned_code = self.clean_llm_output(response.content)
         return FactorCode(
             hypothesis_id=hypothesis.title,
-            python_code=response.content.strip(),
+            python_code=cleaned_code,
             required_libraries=["pandas", "numpy"],
         )
 

@@ -186,6 +186,14 @@ class SafeCodeExecutor:
             )
         }
 
+        def safe_import(name, globals=None, locals=None, fromlist=(), level=0):
+            allowed_prefixes = ("pandas", "numpy", "scipy", "math", "statistics", "datetime", "json", "re", "ta", "sklearn")
+            if any(name == p or name.startswith(p + ".") for p in allowed_prefixes):
+                return __import__(name, globals, locals, fromlist, level)
+            raise ImportError(f"Importing '{name}' is restricted in this sandbox.")
+
+        safe_builtins["__import__"] = safe_import
+
         namespace: Dict[str, Any] = {
             "__builtins__": safe_builtins,
             "pd": pd,
@@ -197,6 +205,8 @@ class SafeCodeExecutor:
         # Optionally inject scipy / ta if available
         try:
             import scipy
+            import scipy.stats
+            import scipy.optimize
             namespace["scipy"] = scipy
         except ImportError:
             pass

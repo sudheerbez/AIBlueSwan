@@ -8,9 +8,10 @@ import { startPipeline, subscribeToPipeline, getPipelineHistory } from './api';
 
 const DEFAULT_CONFIG = {
   capital: 100000,
-  maxIterations: 5,
+  maxIterations: 2,
   universe: 'NASDAQ-100',
-  openaiApiKey: '',
+  llmProvider: 'OpenAI',
+  apiKey: '',
 };
 
 export default function App() {

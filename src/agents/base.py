@@ -146,6 +146,17 @@ class BaseAgent(ABC):
         else:
             raise ValueError(f"Unsupported LLM provider: {provider}")
 
+    @staticmethod
+    def clean_llm_output(text: str) -> str:
+        """Strip markdown fences (like ```json ... ```) from LLM output, handling preambles."""
+        text = text.strip()
+        import re
+        # Find everything between triple backticks, optional language specifier
+        match = re.search(r"```[a-zA-Z]*\n(.*?)```", text, re.DOTALL)
+        if match:
+            return match.group(1).strip()
+        return text
+
     @abstractmethod
     def run(self, state: GraphState) -> GraphState:
         """Process the pipeline state and return an updated copy."""
