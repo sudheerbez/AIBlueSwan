@@ -13,6 +13,7 @@ from typing import Any, Callable, Dict, List, Optional
 
 from src.agents.base import (
     GraphState, Hypothesis, FactorCode, BacktestResult, Critique,
+    TradeRecord, OHLCVBar,
 )
 
 
@@ -140,6 +141,10 @@ async def _execute_pipeline(run: PipelineRun) -> None:
             "hypothesis_history": [],
             "critique_history": [],
             "decision": "",
+            "best_hypothesis": "",
+            "best_backtest_results": "",
+            "best_factor_code": "",
+            "best_sharpe": float("-inf"),
         }
 
         # Run graph step-by-step to capture per-node events
@@ -197,6 +202,14 @@ async def _execute_pipeline(run: PipelineRun) -> None:
                             "wfo_score": round(br.wfo_score, 4),
                         }
                         agent_event["equity_curve"] = br.equity_curve
+                        # Trade log for chart markers
+                        agent_event["trade_log"] = [
+                            t.model_dump() for t in br.trade_log
+                        ]
+                        # OHLCV data for candlestick chart
+                        agent_event["ohlcv_data"] = [
+                            b.model_dump() for b in br.ohlcv_data
+                        ]
                     except Exception:
                         pass
 
@@ -222,19 +235,39 @@ async def _execute_pipeline(run: PipelineRun) -> None:
             "iterations": prev_iteration,
         }
 
-        # Try to extract final metrics from the last ValidationAgent event
-        for ev in reversed(run.events):
-            if ev.get("metrics"):
-                run.final_state["metrics"] = ev["metrics"]
-                break
-        for ev in reversed(run.events):
-            if ev.get("equity_curve"):
-                run.final_state["equity_curve"] = ev["equity_curve"]
-                break
-        for ev in reversed(run.events):
+        # Extract BEST strategy metrics across all iterations
+        best_metrics = None
+        best_sharpe = float("-inf")
+        best_equity = None
+        best_hypothesis = None
+        best_trade_log = None
+        best_ohlcv = None
+
+        # Walk all events to find the iteration with the highest Sharpe
+        pending_hypothesis = None
+        for ev in run.events:
             if ev.get("hypothesis"):
-                run.final_state["final_strategy"] = ev["hypothesis"]
-                break
+                pending_hypothesis = ev["hypothesis"]
+            if ev.get("metrics"):
+                sharpe = ev["metrics"].get("sharpe_ratio", float("-inf"))
+                if sharpe > best_sharpe:
+                    best_sharpe = sharpe
+                    best_metrics = ev["metrics"]
+                    best_equity = ev.get("equity_curve")
+                    best_hypothesis = pending_hypothesis
+                    best_trade_log = ev.get("trade_log")
+                    best_ohlcv = ev.get("ohlcv_data")
+
+        if best_metrics:
+            run.final_state["metrics"] = best_metrics
+        if best_equity:
+            run.final_state["equity_curve"] = best_equity
+        if best_hypothesis:
+            run.final_state["final_strategy"] = best_hypothesis
+        if best_trade_log:
+            run.final_state["trade_log"] = best_trade_log
+        if best_ohlcv:
+            run.final_state["ohlcv_data"] = best_ohlcv
 
         run.status = "success" if prev_status == "success" else "failed"
 

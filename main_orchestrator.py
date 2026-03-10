@@ -149,6 +149,10 @@ def main() -> None:
         "hypothesis_history": [],
         "critique_history": [],
         "decision": "",
+        "best_hypothesis": "",
+        "best_backtest_results": "",
+        "best_factor_code": "",
+        "best_sharpe": float("-inf"),
     }
 
     # Compile and run the graph
@@ -163,26 +167,39 @@ def main() -> None:
         sys.exit(1)
 
     # -- Report results ------------------------------------------------------
+    # Use best-so-far results, falling back to last iteration if unset
+    best_bt = final_state.get("best_backtest_results") or final_state.get("backtest_results", "")
+    best_hyp = final_state.get("best_hypothesis") or final_state.get("current_hypothesis", "")
+    last_bt = final_state.get("backtest_results", "")
+
     print("\n" + "=" * 60)
     print(" PIPELINE COMPLETE")
     print("=" * 60)
     print(f"  Status:     {final_state.get('status', 'unknown')}")
     print(f"  Iterations: {final_state.get('iteration_count', 0)}")
 
-    if final_state.get("backtest_results"):
+    if best_bt:
         from src.agents.base import BacktestResult
-        result = BacktestResult.model_validate_json(final_state["backtest_results"])
+        result = BacktestResult.model_validate_json(best_bt)
+        print(f"\n  === Best Strategy (across all iterations) ===")
         print(f"  Sharpe:     {result.sharpe_ratio:.4f}")
         print(f"  Max DD:     {result.max_drawdown:.2%}")
         print(f"  Ann Return: {result.annualized_return:.2%}")
         print(f"  WFO Score:  {result.wfo_score:.4f}")
         print(f"  Trades:     {result.trades_count}")
 
-    if final_state.get("current_hypothesis"):
+    if best_hyp:
         from src.agents.base import Hypothesis
-        hyp = Hypothesis.model_validate_json(final_state["current_hypothesis"])
-        print(f"\n  Final Strategy: {hyp.title}")
-        print(f"  Logic: {hyp.formula_logic}")
+        hyp = Hypothesis.model_validate_json(best_hyp)
+        print(f"\n  Strategy:   {hyp.title}")
+        print(f"  Logic:      {hyp.formula_logic}")
+
+    # Show last iteration too, if different from best
+    if last_bt and last_bt != best_bt:
+        from src.agents.base import BacktestResult as BR
+        last_result = BR.model_validate_json(last_bt)
+        print(f"\n  --- Last Iteration ---")
+        print(f"  Sharpe: {last_result.sharpe_ratio:.4f} | Max DD: {last_result.max_drawdown:.2%} | Trades: {last_result.trades_count}")
 
     print()
 

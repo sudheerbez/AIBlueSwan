@@ -11,7 +11,7 @@ from typing import Callable, List, Optional
 import numpy as np
 import pandas as pd
 
-from src.agents.base import BacktestResult
+from src.agents.base import BacktestResult, TradeRecord, OHLCVBar
 from src.backtest.engine import BacktestEngine
 from src.backtest.metrics import (
     sharpe_ratio as calc_sharpe,
@@ -98,6 +98,7 @@ class WalkForwardOptimizer:
         window_sharpes: List[float] = []
         all_oos_returns: List[float] = []
         all_equity: List[float] = [self.initial_capital]
+        all_trade_log: List[TradeRecord] = []
         total_trades = 0
 
         logs.append(
@@ -146,6 +147,7 @@ class WalkForwardOptimizer:
             window_sharpes.append(result.sharpe_ratio)
             total_trades += result.trades_count
             all_equity.extend(result.equity_curve[1:])  # skip duplicate start
+            all_trade_log.extend(result.trade_log)
 
             # Reconstruct OOS returns from equity curve
             for j in range(1, len(result.equity_curve)):
@@ -172,6 +174,8 @@ class WalkForwardOptimizer:
                 trades_count=0,
                 wfo_score=0.0,
                 equity_curve=[self.initial_capital],
+                trade_log=[],
+                ohlcv_data=BacktestEngine._extract_ohlcv(price_data),
                 logs=logs,
             )
 
@@ -192,6 +196,8 @@ class WalkForwardOptimizer:
             trades_count=total_trades,
             wfo_score=round(wfo_score, 4),
             equity_curve=all_equity,
+            trade_log=all_trade_log,
+            ohlcv_data=BacktestEngine._extract_ohlcv(price_data),
             logs=logs,
         )
 

@@ -70,6 +70,24 @@ NASDAQ_100_TICKERS: list[str] = [
 ]
 
 # ---------------------------------------------------------------------------
+# Nifty 50 Constituents (as of early 2025)
+# ---------------------------------------------------------------------------
+
+NIFTY_50_TICKERS: list[str] = [
+    "RELIANCE.NS", "TCS.NS", "HDFCBANK.NS", "INFY.NS", "ICICIBANK.NS",
+    "HINDUNILVR.NS", "ITC.NS", "SBIN.NS", "BHARTIARTL.NS", "KOTAKBANK.NS",
+    "LT.NS", "AXISBANK.NS", "ASIANPAINT.NS", "HCLTECH.NS", "MARUTI.NS",
+    "SUNPHARMA.NS", "TITAN.NS", "BAJFINANCE.NS", "WIPRO.NS", "ULTRACEMCO.NS",
+    "NESTLEIND.NS", "ONGC.NS", "NTPC.NS", "TATAMOTORS.NS", "M&M.NS",
+    "POWERGRID.NS", "JSWSTEEL.NS", "TATASTEEL.NS", "ADANIENT.NS", "ADANIPORTS.NS",
+    "COALINDIA.NS", "BAJAJFINSV.NS", "TECHM.NS", "HDFCLIFE.NS", "SBILIFE.NS",
+    "GRASIM.NS", "DIVISLAB.NS", "BPCL.NS", "BRITANNIA.NS", "CIPLA.NS",
+    "EICHERMOT.NS", "HEROMOTOCO.NS", "INDUSINDBK.NS", "DRREDDY.NS", "APOLLOHOSP.NS",
+    "TATACONSUM.NS", "BAJAJ-AUTO.NS", "HINDALCO.NS", "UPL.NS", "WIPRO.NS",
+]
+
+
+# ---------------------------------------------------------------------------
 # API Base URLs
 # ---------------------------------------------------------------------------
 

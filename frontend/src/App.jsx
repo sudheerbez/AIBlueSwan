@@ -1,6 +1,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import MetricsPanel from './components/MetricsPanel';
 import EquityChart from './components/EquityChart';
+import TradingChart from './components/TradingChart';
 import ProgressFeed from './components/ProgressFeed';
 import StrategyCard from './components/StrategyCard';
 import CritiquePanel from './components/CritiquePanel';
@@ -8,7 +9,7 @@ import { startPipeline, subscribeToPipeline, getPipelineHistory } from './api';
 
 const DEFAULT_CONFIG = {
   capital: 100000,
-  maxIterations: 2,
+  maxIterations: 5,
   universe: 'NASDAQ-100',
   llmProvider: 'Ollama',
 };
@@ -22,6 +23,8 @@ export default function App() {
   const [equityCurve, setEquityCurve] = useState([]);
   const [hypothesis, setHypothesis] = useState(null);
   const [critique, setCritique] = useState(null);
+  const [tradeLog, setTradeLog] = useState([]);
+  const [ohlcvData, setOhlcvData] = useState([]);
   const [iteration, setIteration] = useState(0);
   const [history, setHistory] = useState([]);
   const wsRef = useRef(null);
@@ -39,6 +42,8 @@ export default function App() {
       setEvents([]);
       setMetrics(null);
       setEquityCurve([]);
+      setTradeLog([]);
+      setOhlcvData([]);
       setHypothesis(null);
       setCritique(null);
       setIteration(0);
@@ -63,6 +68,8 @@ export default function App() {
               })));
             }
             if (event.critique) setCritique(event.critique);
+            if (event.trade_log) setTradeLog(event.trade_log);
+            if (event.ohlcv_data) setOhlcvData(event.ohlcv_data);
           }
 
           if (event.type === 'pipeline_finished') {
@@ -149,6 +156,7 @@ export default function App() {
                 <option value="NASDAQ-100">NASDAQ-100</option>
                 <option value="S&P-500">S&P 500</option>
                 <option value="DJIA-30">DJIA 30</option>
+                <option value="NIFTY-50">NIFTY 50</option>
               </select>
             </div>
             <div className="space-y-1.5 px-2">
@@ -279,6 +287,13 @@ export default function App() {
               <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
                 <MetricsPanel metrics={metrics} status={status} iteration={iteration} />
               </div>
+
+              {/* Professional Trading Chart — full width */}
+              <TradingChart
+                ohlcvData={ohlcvData}
+                tradeLog={tradeLog}
+                equityCurve={equityCurve}
+              />
 
               {/* Equity Chart + Strategy side by side */}
               <div className="grid gap-4 md:grid-cols-2">

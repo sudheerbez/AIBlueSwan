@@ -36,6 +36,25 @@ class FactorCode(BaseModel):
     validation_error: Optional[str] = None
 
 
+class TradeRecord(BaseModel):
+    """A single trade entry or exit."""
+    timestamp: str                                  # ISO date string
+    price: float
+    action: str                                     # "entry" or "exit"
+    pnl: Optional[float] = None                     # Realized PnL (exit only)
+    equity_after: float = 0.0
+
+
+class OHLCVBar(BaseModel):
+    """A single OHLCV bar for chart rendering."""
+    time: str                                       # ISO date or YYYY-MM-DD
+    open: float
+    high: float
+    low: float
+    close: float
+    volume: float = 0.0
+
+
 class BacktestResult(BaseModel):
     """Aggregate performance metrics from a backtest run."""
     sharpe_ratio: float = 0.0
@@ -45,6 +64,8 @@ class BacktestResult(BaseModel):
     trades_count: int = 0
     wfo_score: float = 0.0                         # Walk-Forward score
     equity_curve: List[float] = Field(default_factory=list)
+    trade_log: List[TradeRecord] = Field(default_factory=list)
+    ohlcv_data: List[OHLCVBar] = Field(default_factory=list)
     logs: List[str] = Field(default_factory=list)
 
 
@@ -92,6 +113,12 @@ class GraphState(TypedDict, total=False):
     critique: str                       # JSON-serialised Critique
     error: str                          # JSON-serialised ErrorReport
 
+    # -- Best-so-far tracking (set by AnalysisAgent) -----------------------
+    best_hypothesis: str                # JSON-serialised Hypothesis (best Sharpe)
+    best_backtest_results: str          # JSON-serialised BacktestResult (best Sharpe)
+    best_factor_code: str               # JSON-serialised FactorCode (best Sharpe)
+    best_sharpe: float                  # Sharpe ratio of the best iteration
+
     # -- History for the feedback loop --------------------------------------
     hypothesis_history: List[str]       # List of serialised Hypotheses
     critique_history: List[str]         # List of serialised Critiques
@@ -118,6 +145,10 @@ class AgentState(BaseModel):
 # Abstract Base Agent
 # ═══════════════════════════════════════════════════════════════════════════
 
+# Module-level counter so MockLLM cycles through templates across get_llm() calls
+_mock_call_count = 0
+
+
 class BaseAgent(ABC):
     """Base class for all pipeline agents."""
 
@@ -133,44 +164,62 @@ class BaseAgent(ABC):
                 self.content = content
 
         class MockLLM:
+            """
+            Mock LLM that cycles through proven strategy templates.
+            Produces actual high-Sharpe strategies instead of trivial ones.
+            """
+
             def __init__(self):
                 pass
 
             def invoke(self, messages):
-                # Simple heuristic to decide which mock response to return
+                global _mock_call_count
+                from src.strategies.templates import STRATEGY_TEMPLATES
+                _mock_call_count += 1
+
                 text = "\n".join(getattr(m, "content", str(m)) for m in messages)
                 low = text.lower()
-                # Prefer returning code when the prompt asks for a function
+
+                # 1) Hypothesis generation (check FIRST — synthesis prompts also contain "python")
+                if "hypothesis" in low and "json" in low:
+                    idx = (_mock_call_count - 1) % len(STRATEGY_TEMPLATES)
+                    template = STRATEGY_TEMPLATES[idx]
+                    import json
+                    hypothesis = {
+                        "title": template["title"],
+                        "rationale": template["rationale"],
+                        "target_asset_class": "NASDAQ 100",
+                        "frequency": "Daily",
+                        "factors": template["factors"],
+                        "formula_logic": template["formula_logic"],
+                    }
+                    return MockResponse(content=json.dumps(hypothesis))
+
+                # 2) Analysis/critique (check BEFORE code — analysis prompts mention "python" too)
+                if "critique" in low or ("backtest" in low and "sharpe" in low):
+                    import re
+                    sharpe_match = re.search(r"sharpe.*?:\s*([-\d.]+)", low)
+                    sharpe_val = float(sharpe_match.group(1)) if sharpe_match else 0.0
+
+                    if sharpe_val >= 1.5:
+                        content = '{"is_success": true, "decision": "end", "suggestions": ["Strategy meets targets."], "potential_biases": []}'
+                    elif sharpe_val >= 1.0:
+                        content = '{"is_success": false, "decision": "evolve_hypothesis", "suggestions": ["Add drawdown control: exit when 20-day rolling DD > -5%.", "Add volatility normalization.", "Consider composite multi-factor approach."], "potential_biases": ["Possible curve-fitting"]}'
+                    elif sharpe_val >= 0.5:
+                        content = '{"is_success": false, "decision": "evolve_hypothesis", "suggestions": ["Switch to volatility-normalized time-series momentum (TSMOM) with SMA-200 filter.", "Add multi-factor composite scoring.", "Add 20-day drawdown control."], "potential_biases": ["Strategy may be too simple"]}'
+                    else:
+                        content = '{"is_success": false, "decision": "evolve_hypothesis", "suggestions": ["Switch to a proven momentum+drawdown control strategy.", "Use composite multi-factor z-score approach.", "Add SMA-200 trend filter and volatility regime filter."], "potential_biases": ["Fundamental strategy flaw"]}'
+                    return MockResponse(content=content)
+
+                # 3) Code generation: return proven template code
                 if "signal_generator" in low or "python" in low or "write a single function" in low:
-                    content = (
-                        "def signal_generator(df):\n"
-                        "    # Defensive, vectorized signal generator suitable for sandbox testing\n"
-                        "    df = df.copy()\n"
-                        "    # Ensure required columns exist\n"
-                        "    for col in ('open','high','low','close','volume'):\n"
-                        "        if col not in df.columns:\n"
-                        "            raise ValueError(f'Missing column: {col}')\n"
-                        "    # Simple momentum + volatility filter to produce some trades\n"
-                        "    df['ma5'] = df['close'].rolling(5, min_periods=1).mean()\n"
-                        "    df['ret'] = df['close'].pct_change().fillna(0)\n"
-                        "    df['vol5'] = df['ret'].rolling(5, min_periods=1).std().fillna(0)\n"
-                        "    df['signal'] = 0\n"
-                        "    long_mask = (df['close'] > df['ma5']) & (df['vol5'] < df['vol5'].rolling(20, min_periods=1).quantile(0.75))\n"
-                        "    df.loc[long_mask, 'signal'] = 1\n"
-                        "    # Avoid lookahead: shift signals forward by 1 bar\n"
-                        "    df['signal'] = df['signal'].shift(1).fillna(0).astype(int)\n"
-                        "    return df\n"
-                        "\n"
-                        "# define a helper name expected by the sandbox (ensures top-level name exists)\n"
-                        "signal_generator = signal_generator\n"
-                    )
-                    return MockResponse(content)
-                if "generate a new trading hypothesis" in low or ("generate" in low and "hypothesis" in low):
-                    content = '{"title": "Mock Momentum+Volatility", "rationale": "A simple mock hypothesis for testing.", "target_asset_class": "NASDAQ 100", "frequency": "Daily", "factors": ["mock_momentum", "mock_volatility"], "formula_logic": "if close > close.rolling(5).mean(): signal=1 else signal=0"}'
-                    return MockResponse(content)
-                # Default: a generic critique / instruction
-                content = '{"is_success": false, "decision": "evolve_hypothesis", "suggestions": ["Increase robustness; reduce lookahead."], "potential_biases": []}'
-                return MockResponse(content)
+                    idx = (_mock_call_count - 1) % len(STRATEGY_TEMPLATES)
+                    template = STRATEGY_TEMPLATES[idx]
+                    return MockResponse(content=template["code"])
+
+                # Default fallback
+                content = '{"is_success": false, "decision": "evolve_hypothesis", "suggestions": ["Try volatility-normalized momentum with drawdown control."], "potential_biases": []}'
+                return MockResponse(content=content)
 
         use_mock = os.getenv("USE_MOCK_LLM", "") == "1"
         if use_mock:

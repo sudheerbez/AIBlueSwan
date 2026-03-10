@@ -112,25 +112,28 @@ class ValidationAgent(BaseAgent):
 
     def _load_data(self, universe_name: str) -> pd.DataFrame:
         """
-        Load live price data for backtesting via yfinance.
-        Maps the selected universe to its corresponding ETF.
+        Load live price data for backtesting via yfinance → Stooq fallback.
+        Optionally merges macro overlay data (VIX, Treasury yields).
         """
         ticker_map = {
             "NASDAQ-100": "^NDX",
             "S&P 500": "^GSPC",
+            "S&P-500": "^GSPC",
             "DJIA-30": "^DJI",
+            "NIFTY-50": "^NSEI",
         }
         ticker = ticker_map.get(universe_name, "^GSPC")
 
         try:
             from src.data.loader import DataLoader
-            loader = DataLoader()
-            print(f"[ValidationAgent] Fetching live data for {ticker} ({universe_name}) via yfinance...")
+            loader = DataLoader(load_macro=True)
+            print(f"[ValidationAgent] Fetching data for {ticker} ({universe_name}) with fallback chain...")
             
             universe = loader.load_universe(tickers=[ticker], start="2018-01-01")
             if ticker in universe and not universe[ticker].empty:
-                print(f"[ValidationAgent] Successfully loaded {len(universe[ticker])} bars of live data for {ticker}.")
-                return universe[ticker]
+                df = universe[ticker]
+                print(f"[ValidationAgent] Loaded {len(df)} bars with columns: {list(df.columns)}")
+                return df
             else:
                 print(f"[ValidationAgent] Warning: DataLoader returned empty for {ticker}.")
         except Exception as exc:

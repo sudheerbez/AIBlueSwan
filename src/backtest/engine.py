@@ -10,7 +10,7 @@ from typing import Callable, Dict, List, Optional
 import numpy as np
 import pandas as pd
 
-from src.agents.base import BacktestResult
+from src.agents.base import BacktestResult, TradeRecord, OHLCVBar
 from src.backtest.metrics import calculate_all_metrics
 
 
@@ -85,9 +85,12 @@ class BacktestEngine:
             return self._empty_result(logs)
 
         # 2.  Simulate trades
-        equity_curve, trades, daily_returns = self._simulate(df, logs)
+        equity_curve, trades, daily_returns, trade_log = self._simulate(df, logs)
 
-        # 3.  Calculate metrics
+        # 3.  Build OHLCV for chart rendering
+        ohlcv_data = self._extract_ohlcv(df)
+
+        # 4.  Calculate metrics
         returns_series = pd.Series(daily_returns, index=df.index[: len(daily_returns)])
         result = calculate_all_metrics(
             returns=returns_series,
@@ -95,6 +98,8 @@ class BacktestEngine:
             trades_count=trades,
         )
         result.logs = logs
+        result.trade_log = trade_log
+        result.ohlcv_data = ohlcv_data
         return result
 
     # -- simulation core -----------------------------------------------------
@@ -103,7 +108,7 @@ class BacktestEngine:
         self,
         df: pd.DataFrame,
         logs: List[str],
-    ) -> tuple[List[float], int, List[float]]:
+    ) -> tuple[List[float], int, List[float], List[TradeRecord]]:
         """
         Walk through the DataFrame bar-by-bar, tracking positions and equity.
 
@@ -112,15 +117,20 @@ class BacktestEngine:
         equity_curve : list[float]
         trades_count : int
         daily_returns : list[float]
+        trade_log : list[TradeRecord]
         """
         cash = self.initial_capital
         position = 0        # number of shares held (positive = long)
         equity_curve: List[float] = [cash]
         trades = 0
         daily_returns: List[float] = []
+        trade_log: List[TradeRecord] = []
+        entry_price = 0.0
+        entry_cost = 0.0
 
         signals = df["signal"].fillna(0).values
         closes = df["close"].values if "close" in df.columns else df["Close"].values
+        dates = df.index
 
         logs.append(f"[INFO] Backtest started | capital=${self.initial_capital:,.0f}")
 
@@ -128,6 +138,7 @@ class BacktestEngine:
             price = closes[i]
             prev_price = closes[i - 1]
             sig = int(signals[i])
+            ts = str(dates[i].date()) if hasattr(dates[i], 'date') else str(dates[i])
 
             # -- Position management ----------------------------------------
             if sig == 1 and position <= 0:
@@ -141,13 +152,31 @@ class BacktestEngine:
                     cost = shares_to_buy * price * (1 + self.slippage + self.commission_rate)
                     cash -= cost
                     position = shares_to_buy
+                    entry_price = price
+                    entry_cost = cost
                     trades += 1
+                    equity = cash + position * price
+                    trade_log.append(TradeRecord(
+                        timestamp=ts,
+                        price=round(price, 2),
+                        action="entry",
+                        equity_after=round(equity, 2),
+                    ))
 
             elif sig == -1 and position >= 0:
                 # Exit long
                 if position > 0:
                     proceeds = position * price * (1 - self.slippage - self.commission_rate)
+                    pnl = proceeds - entry_cost
                     cash += proceeds
+                    equity = cash
+                    trade_log.append(TradeRecord(
+                        timestamp=ts,
+                        price=round(price, 2),
+                        action="exit",
+                        pnl=round(pnl, 2),
+                        equity_after=round(equity, 2),
+                    ))
                     position = 0
                     trades += 1
 
@@ -159,9 +188,25 @@ class BacktestEngine:
             equity_curve.append(equity)
 
         logs.append(f"[INFO] Backtest finished | trades={trades} | final_equity=${equity_curve[-1]:,.2f}")
-        return equity_curve, trades, daily_returns
+        return equity_curve, trades, daily_returns, trade_log
 
     # -- helpers -------------------------------------------------------------
+
+    @staticmethod
+    def _extract_ohlcv(df: pd.DataFrame) -> List[OHLCVBar]:
+        """Extract OHLCV data from DataFrame for frontend chart rendering."""
+        bars = []
+        for idx, row in df.iterrows():
+            ts = str(idx.date()) if hasattr(idx, 'date') else str(idx)
+            bars.append(OHLCVBar(
+                time=ts,
+                open=round(float(row.get("open", row.get("Open", 0))), 2),
+                high=round(float(row.get("high", row.get("High", 0))), 2),
+                low=round(float(row.get("low", row.get("Low", 0))), 2),
+                close=round(float(row.get("close", row.get("Close", 0))), 2),
+                volume=round(float(row.get("volume", row.get("Volume", 0))), 0),
+            ))
+        return bars
 
     def _empty_result(self, logs: List[str]) -> BacktestResult:
         """Return a zeroed-out result when the backtest cannot proceed."""
@@ -173,5 +218,7 @@ class BacktestEngine:
             trades_count=0,
             wfo_score=0.0,
             equity_curve=[self.initial_capital],
+            trade_log=[],
+            ohlcv_data=[],
             logs=logs,
         )
