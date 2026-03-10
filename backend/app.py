@@ -69,8 +69,7 @@ class PipelineStartRequest(BaseModel):
     capital: float = Field(default=100_000.0, ge=1000, le=10_000_000)
     max_iterations: int = Field(default=5, ge=1, le=50)
     universe: str = Field(default="NASDAQ-100")
-    llm_provider: str = Field(default="OpenAI")
-    api_key: Optional[str] = None
+    llm_provider: str = Field(default="Ollama")
 
 
 class PipelineStartResponse(BaseModel):
@@ -96,7 +95,6 @@ async def start(req: PipelineStartRequest):
         max_iterations=req.max_iterations,
         universe=req.universe,
         llm_provider=req.llm_provider,
-        api_key=req.api_key,
     )
     return PipelineStartResponse(
         run_id=run.run_id,

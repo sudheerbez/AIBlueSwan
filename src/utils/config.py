@@ -17,27 +17,19 @@ class Settings(BaseModel):
     """Validated configuration loaded from environment variables."""
 
     # Data-source API keys
-    alpha_vantage_api_key: str = Field(
-        default_factory=lambda: os.getenv("ALPHA_VANTAGE_API_KEY", "")
-    )
     fmp_api_key: str = Field(
         default_factory=lambda: os.getenv("FMP_API_KEY", "")
     )
 
-    # LLM provider keys
-    openai_api_key: str = Field(
-        default_factory=lambda: os.getenv("OPENAI_API_KEY", "")
+    # LLM configuration
+    ollama_base_url: str = Field(
+        default_factory=lambda: os.getenv("OLLAMA_BASE_URL", "http://localhost:11434")
     )
-    anthropic_api_key: str = Field(
-        default_factory=lambda: os.getenv("ANTHROPIC_API_KEY", "")
-    )
-    google_api_key: str = Field(
-        default_factory=lambda: os.getenv("GOOGLE_API_KEY", "")
-    )
-
-    # LLM defaults
     default_llm_model: str = Field(
-        default_factory=lambda: os.getenv("DEFAULT_LLM_MODEL", "gpt-4o")
+        default_factory=lambda: os.getenv("DEFAULT_LLM_MODEL", "llama3.2")
+    )
+    coder_llm_model: str = Field(
+        default_factory=lambda: os.getenv("CODER_LLM_MODEL", "deepseek-coder")
     )
 
     # Trading defaults
@@ -81,11 +73,4 @@ NASDAQ_100_TICKERS: list[str] = [
 # API Base URLs
 # ---------------------------------------------------------------------------
 
-ALPHA_VANTAGE_BASE_URL = "https://www.alphavantage.co/query"
 FMP_BASE_URL = "https://financialmodelingprep.com/api/v3"
-
-# ---------------------------------------------------------------------------
-# Data Cache Directory
-# ---------------------------------------------------------------------------
-
-DATA_CACHE_DIR = os.path.join(os.path.dirname(__file__), "..", "..", "data", "cache")

@@ -1,7 +1,7 @@
 const API_BASE = 'http://localhost:8000';
 const WS_BASE = 'ws://localhost:8000';
 
-export async function startPipeline({ capital, maxIterations, universe, llmProvider, apiKey }) {
+export async function startPipeline({ capital, maxIterations, universe, llmProvider }) {
     const res = await fetch(`${API_BASE}/api/pipeline/start`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
@@ -10,7 +10,6 @@ export async function startPipeline({ capital, maxIterations, universe, llmProvi
             max_iterations: Number(maxIterations),
             universe,
             llm_provider: llmProvider,
-            api_key: apiKey,
         }),
     });
     if (!res.ok) throw new Error(`Start failed: ${res.status}`);

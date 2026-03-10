@@ -183,6 +183,7 @@ class SafeCodeExecutor:
                 "float", "frozenset", "int", "isinstance", "len", "list",
                 "map", "max", "min", "print", "range", "reversed", "round",
                 "set", "slice", "sorted", "str", "sum", "tuple", "type", "zip",
+                "ValueError", "KeyError", "IndexError", "Exception", "NotImplementedError"
             )
         }
 

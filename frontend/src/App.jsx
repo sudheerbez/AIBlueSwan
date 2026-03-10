@@ -10,8 +10,7 @@ const DEFAULT_CONFIG = {
   capital: 100000,
   maxIterations: 2,
   universe: 'NASDAQ-100',
-  llmProvider: 'OpenAI',
-  apiKey: '',
+  llmProvider: 'Ollama',
 };
 
 export default function App() {
@@ -154,33 +153,18 @@ export default function App() {
             </div>
             <div className="space-y-1.5 px-2">
               <label htmlFor="select-llm-provider" className="text-sm font-medium leading-none">
-                LLM Provider
+                LLM Provider (Local)
               </label>
               <select
                 className="flex h-9 w-full items-center justify-between rounded-md border border-input bg-transparent px-3 py-2 text-sm shadow-sm ring-offset-background placeholder:text-muted-foreground focus:outline-none focus:ring-1 focus:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                 value={config.llmProvider}
                 onChange={e => setConfig(c => ({ ...c, llmProvider: e.target.value }))}
-                disabled={status === 'running'}
+                disabled={true}
                 id="select-llm-provider"
               >
-                <option value="OpenAI">OpenAI</option>
-                <option value="Anthropic">Anthropic Claude</option>
-                <option value="Gemini">Google Gemini</option>
+                <option value="Ollama">Ollama (Local Models)</option>
               </select>
-            </div>
-            <div className="space-y-1.5 px-2">
-              <label htmlFor="input-api-key" className="text-sm font-medium leading-none peer-disabled:cursor-not-allowed peer-disabled:opacity-70">
-                {config.llmProvider === 'Anthropic' ? 'Claude' : config.llmProvider} API Key
-              </label>
-              <input
-                className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
-                type="password"
-                placeholder={config.llmProvider === 'OpenAI' ? 'sk-proj-...' : config.llmProvider === 'Anthropic' ? 'sk-ant-...' : 'AIza...'}
-                value={config.apiKey}
-                onChange={e => setConfig(c => ({ ...c, apiKey: e.target.value }))}
-                disabled={status === 'running'}
-                id="input-api-key"
-              />
+              <p className="text-xs text-muted-foreground mt-1 px-1">Configure models in config.py.</p>
             </div>
 
             <div className="px-2 pt-2">

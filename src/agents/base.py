@@ -10,6 +10,7 @@ from typing_extensions import TypedDict
 
 from abc import ABC, abstractmethod
 from pydantic import BaseModel, Field
+from src.utils.config import Settings
 
 
 # ═══════════════════════════════════════════════════════════════════════════
@@ -121,30 +122,66 @@ class BaseAgent(ABC):
     """Base class for all pipeline agents."""
 
     def __init__(self) -> None:
-        self.model_name_openai = "gpt-4o"
-        self.model_name_anthropic = "claude-3-7-sonnet-20250219"
-        self.model_name_gemini = "gemini-2.5-flash"
+        self.settings = Settings()
 
-    def get_llm(self, provider: str, temperature: float = 0.7):
+    def get_llm(self, provider: str, temperature: float = 0.7, model_name: str = None):
         """Instantiate the correct LangChain chat model based on provider."""
         import os
-        if provider == "OpenAI":
-            from langchain_openai import ChatOpenAI
-            if not os.getenv("OPENAI_API_KEY"):
-                raise ValueError("OPENAI_API_KEY is not set.")
-            return ChatOpenAI(model=self.model_name_openai, temperature=temperature)
-        elif provider == "Anthropic":
-            from langchain_anthropic import ChatAnthropic
-            if not os.getenv("ANTHROPIC_API_KEY"):
-                raise ValueError("ANTHROPIC_API_KEY is not set.")
-            return ChatAnthropic(model=self.model_name_anthropic, temperature=temperature)
-        elif provider == "Gemini":
-            from langchain_google_genai import ChatGoogleGenerativeAI
-            if not os.getenv("GOOGLE_API_KEY"):
-                raise ValueError("GOOGLE_API_KEY is not set.")
-            return ChatGoogleGenerativeAI(model=self.model_name_gemini, temperature=temperature)
-        else:
-            raise ValueError(f"Unsupported LLM provider: {provider}")
+        # Lightweight mock LLM used for offline testing when no API key is available
+        class MockResponse:
+            def __init__(self, content: str):
+                self.content = content
+
+        class MockLLM:
+            def __init__(self):
+                pass
+
+            def invoke(self, messages):
+                # Simple heuristic to decide which mock response to return
+                text = "\n".join(getattr(m, "content", str(m)) for m in messages)
+                low = text.lower()
+                # Prefer returning code when the prompt asks for a function
+                if "signal_generator" in low or "python" in low or "write a single function" in low:
+                    content = (
+                        "def signal_generator(df):\n"
+                        "    # Defensive, vectorized signal generator suitable for sandbox testing\n"
+                        "    df = df.copy()\n"
+                        "    # Ensure required columns exist\n"
+                        "    for col in ('open','high','low','close','volume'):\n"
+                        "        if col not in df.columns:\n"
+                        "            raise ValueError(f'Missing column: {col}')\n"
+                        "    # Simple momentum + volatility filter to produce some trades\n"
+                        "    df['ma5'] = df['close'].rolling(5, min_periods=1).mean()\n"
+                        "    df['ret'] = df['close'].pct_change().fillna(0)\n"
+                        "    df['vol5'] = df['ret'].rolling(5, min_periods=1).std().fillna(0)\n"
+                        "    df['signal'] = 0\n"
+                        "    long_mask = (df['close'] > df['ma5']) & (df['vol5'] < df['vol5'].rolling(20, min_periods=1).quantile(0.75))\n"
+                        "    df.loc[long_mask, 'signal'] = 1\n"
+                        "    # Avoid lookahead: shift signals forward by 1 bar\n"
+                        "    df['signal'] = df['signal'].shift(1).fillna(0).astype(int)\n"
+                        "    return df\n"
+                        "\n"
+                        "# define a helper name expected by the sandbox (ensures top-level name exists)\n"
+                        "signal_generator = signal_generator\n"
+                    )
+                    return MockResponse(content)
+                if "generate a new trading hypothesis" in low or ("generate" in low and "hypothesis" in low):
+                    content = '{"title": "Mock Momentum+Volatility", "rationale": "A simple mock hypothesis for testing.", "target_asset_class": "NASDAQ 100", "frequency": "Daily", "factors": ["mock_momentum", "mock_volatility"], "formula_logic": "if close > close.rolling(5).mean(): signal=1 else signal=0"}'
+                    return MockResponse(content)
+                # Default: a generic critique / instruction
+                content = '{"is_success": false, "decision": "evolve_hypothesis", "suggestions": ["Increase robustness; reduce lookahead."], "potential_biases": []}'
+                return MockResponse(content)
+
+        use_mock = os.getenv("USE_MOCK_LLM", "") == "1"
+        if use_mock:
+            return MockLLM()
+        
+        from langchain_ollama import ChatOllama
+        return ChatOllama(
+            model=model_name or self.settings.default_llm_model, 
+            base_url=self.settings.ollama_base_url,
+            temperature=temperature
+        )
 
     @staticmethod
     def clean_llm_output(text: str) -> str:

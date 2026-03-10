@@ -116,18 +116,18 @@ class ValidationAgent(BaseAgent):
         Maps the selected universe to its corresponding ETF.
         """
         ticker_map = {
-            "NASDAQ-100": "QQQ",
-            "S&P 500": "SPY",
-            "DJIA-30": "DIA",
+            "NASDAQ-100": "^NDX",
+            "S&P 500": "^GSPC",
+            "DJIA-30": "^DJI",
         }
-        ticker = ticker_map.get(universe_name, "SPY")
+        ticker = ticker_map.get(universe_name, "^GSPC")
 
         try:
             from src.data.loader import DataLoader
             loader = DataLoader()
             print(f"[ValidationAgent] Fetching live data for {ticker} ({universe_name}) via yfinance...")
             
-            universe = loader.load_universe(tickers=[ticker], start="2018-01-01", ignore_cache=True)
+            universe = loader.load_universe(tickers=[ticker], start="2018-01-01")
             if ticker in universe and not universe[ticker].empty:
                 print(f"[ValidationAgent] Successfully loaded {len(universe[ticker])} bars of live data for {ticker}.")
                 return universe[ticker]

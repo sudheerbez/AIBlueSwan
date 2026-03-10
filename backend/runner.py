@@ -91,16 +91,12 @@ async def start_pipeline(
     capital: float = 100_000.0,
     max_iterations: int = 5,
     universe: str = "NASDAQ-100",
-    llm_provider: str = "OpenAI",
-    api_key: Optional[str] = None,
+    llm_provider: str = "Ollama",
 ) -> PipelineRun:
     """Create and launch a pipeline run as a background task."""
     run_id = str(uuid.uuid4())[:8]
     run = PipelineRun(run_id, capital, max_iterations, universe)
     run.llm_provider = llm_provider
-    
-    if api_key:
-        run.api_key = api_key
         
     _runs[run_id] = run
 
@@ -126,14 +122,6 @@ async def _execute_pipeline(run: PipelineRun) -> None:
 
     try:
         import os
-        if hasattr(run, "api_key") and run.api_key:
-            if run.llm_provider == "OpenAI":
-                os.environ["OPENAI_API_KEY"] = run.api_key
-            elif run.llm_provider == "Anthropic":
-                os.environ["ANTHROPIC_API_KEY"] = run.api_key
-            elif run.llm_provider == "Gemini":
-                os.environ["GOOGLE_API_KEY"] = run.api_key
-
         from main_orchestrator import build_graph
         graph = build_graph()
 

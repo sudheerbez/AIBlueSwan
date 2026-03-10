@@ -33,6 +33,7 @@ Rules:
 2. Address prior critiques to evolve the strategy into something sharper and more robust.
 3. Target Maximum Returns and Sharpe > 2.0, Max Drawdown < 15%.
 4. Be mathematically creative and rigorous.
+5. CRITICAL JSON FORMATTING: The `formula_logic` field MUST be a simple, single-line english description. DO NOT write raw Python code in it. DO NOT use newlines or triple-quotes (like `'''`) inside the JSON.
 
 Respond ONLY with valid JSON matching this schema:
 {
@@ -104,4 +105,16 @@ class SynthesisAgent(BaseAgent):
         ])
 
         cleaned_json = self.clean_llm_output(response.content)
-        return Hypothesis.model_validate_json(cleaned_json)
+        
+        try:
+            return Hypothesis.model_validate_json(cleaned_json)
+        except Exception as e:
+            print(f"[SynthesisAgent] JSON Error: {e}. Falling back to basic hypothesis.")
+            return Hypothesis(
+                title="Fallback Momentum Strategy",
+                rationale="The LLM failed to output valid JSON. Using a fallback momentum logic.",
+                target_asset_class="NASDAQ 100",
+                frequency="Daily",
+                factors=["Price_Momentum"],
+                formula_logic="If 10-day MA > 30-day MA, go long. Else short."
+            )

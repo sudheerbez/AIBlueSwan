@@ -44,9 +44,9 @@ AIBlueSwan/
 │   │   └── analysis.py            # Metric evaluation + decision routing
 │   │
 │   ├── data/                      # MCP tool integrations
-│   │   ├── alpha_vantage.py       # Alpha Vantage async client
+│   │   ├── yfinance_client.py     # yfinance async client (free, cache-free)
 │   │   ├── fmp.py                 # Financial Modeling Prep async client
-│   │   └── loader.py              # Unified data loader with CSV caching
+│   │   └── loader.py              # Unified live data loader
 │   │
 │   ├── backtest/                  # Backtesting engine
 │   │   ├── metrics.py             # Sharpe, Sortino, Max DD, CAGR, Calmar
@@ -57,8 +57,7 @@ AIBlueSwan/
 │       ├── config.py              # Settings, NASDAQ-100 tickers, constants
 │       └── executor.py            # Sandboxed code execution
 │
-├── data/                          # Market data cache
-│   └── cache/                     # Auto-populated CSV files
+├── data/                          # Legacy data / outputs
 │
 ├── notebooks/                     # Jupyter analysis notebooks
 └── results/                       # Strategy output artifacts
@@ -104,22 +103,33 @@ A high WFO score indicates consistent performance across time periods, while a l
 
 ---
 
-## Getting Started
+AutoQuant uses a multi-agent orchestrated pipeline powered by **LangGraph** and runs entirely locally. It delegates planning, coding, backtesting, and critique to multiple local Ollama AI instances to autonomously discover and refine trading strategies without spending credits.
 
-### 1. Clone and Install
+## Running Locally
 
+### 1. Requirements
+*   Python 3.10+
+*   Node.js 18+ (for frontend)
+*   **Ollama installed and running locally**
+    *   Download and install Ollama from [ollama.com](https://ollama.com/)
+    *   Pull the default model via terminal: `ollama pull llama3.2` (or adjust the `DEFAULT_LLM_MODEL` in your `.env`)
+
+### 2. Environment Setup
+Clone the repository and install the dependencies:
 ```bash
+git clone https://github.com/sudheerbez/AIBlueSwan.git
 cd AIBlueSwan
+python3 -m venv .venv
+source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 2. Configure Environment Variables
+### 3. Configure Environment Variables
 
 Create a `.env` file in the project root:
 
 ```bash
 # Data Sources (at least one recommended)
-ALPHA_VANTAGE_API_KEY=your_alpha_vantage_key
 FMP_API_KEY=your_fmp_key
 
 # LLM Provider (at least one required for full pipeline)
@@ -165,7 +175,7 @@ All agents communicate through **structured JSON** using Pydantic schemas.  This
 ## Extending the System
 
 ### Adding a New Data Source
-1. Create `src/data/your_source.py` following the `AlphaVantageClient` pattern
+1. Create `src/data/your_source.py` following the `YFinanceClient` pattern
 2. Register it in `src/data/loader.py` as a new source option
 3. Add the API key to `.env.example` and `src/utils/config.py`
 

@@ -42,7 +42,8 @@ Decision rules:
 - "evolve_hypothesis" otherwise
 
 Be specific in suggestions: mention exact factors, timeframes, or
-risk management improvements.
+risk management improvements. Do NOT use multi-line strings like `\"\"\"` inside the JSON. All strings must be properly escaped.
+If the previous run failed with a TypeError (e.g., must be real number, not Series), explicitly instruct the coder to replace normal `if/else` statements with vectorized operations (like `np.where`) in your suggestions.
 """
 
 
@@ -167,4 +168,13 @@ class AnalysisAgent(BaseAgent):
         ])
 
         cleaned_json = self.clean_llm_output(response.content)
-        return Critique.model_validate_json(cleaned_json)
+        try:
+            return Critique.model_validate_json(cleaned_json)
+        except Exception as e:
+            print(f"[AnalysisAgent] JSON Error: {e}. Defaulting to evolve_hypothesis.")
+            return Critique(
+                is_success=False,
+                decision="evolve_hypothesis",
+                suggestions=[f"Recovered from invalid JSON critique. Keep trying."],
+                potential_biases=["Formatting error in previous critique"]
+            )

@@ -31,8 +31,18 @@ Rules:
 - Use advanced vectorized pandas and numpy operations. Avoid slow iterrows loop at all costs.
 - Include ALL helper functions inline (e.g. ``calculate_hurst``, ``rolling_zscore``).
 - Handle NaN values gracefully (e.g., using .ffill().fillna(0)).
+- CRITICAL PANDAS RULE: Never use `if/elif/else` with a pandas Series (e.g. `if df['close'] > x:`). ALWAYS use `np.where(condition, x, y)` or boolean masking (`df.loc[condition, 'signal'] = 1`). Never slice indexes incorrectly (no `df[-1]`).
 - CRITICAL: DO NOT WRITE ANY `import` STATEMENTS. The following modules are already pre-injected into your global namespace: `pd` (pandas), `np` (numpy), `scipy`, and `ta`. Use them directly.
+- Ensure your strategy ALWAYS generates trades. Do not use overly restrictive threshold conditions that are never met. If in doubt, fallback to a simple moving average crossover alongside your complex logic to guarantee a non-zero signal count.
 - The function must be completely self-contained, deterministic, and highly optimized for backtesting.
+
+EXAMPLE OUTPUT:
+def signal_generator(df):
+    df['sma10'] = df['close'].rolling(10).mean()
+    df['sma30'] = df['close'].rolling(30).mean()
+    df['signal'] = np.where(df['sma10'] > df['sma30'], 1, -1)
+    df['signal'] = df['signal'].shift(1).fillna(0)
+    return df
 
 Respond ONLY with the raw Python code (no markdown fences).
 """
@@ -75,7 +85,11 @@ class ImplementationAgent(BaseAgent):
         """Generate code via LLM exclusively."""
         from langchain_core.messages import SystemMessage, HumanMessage
 
-        llm = self.get_llm(llm_provider, temperature=0.0)
+        llm = self.get_llm(
+            llm_provider, 
+            temperature=0.0, 
+            model_name=self.settings.coder_llm_model
+        )
 
         user_msg = (
             f"Hypothesis: {hypothesis.title}\n"
