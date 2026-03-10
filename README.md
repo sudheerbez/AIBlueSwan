@@ -43,10 +43,9 @@ AIBlueSwan/
 │   │   ├── validation.py          # Backtesting (WFO + engine)
 │   │   └── analysis.py            # Metric evaluation + decision routing
 │   │
-│   ├── data/                      # MCP tool integrations
-│   │   ├── yfinance_client.py     # yfinance async client (free, cache-free)
-│   │   ├── fmp.py                 # Financial Modeling Prep async client
-│   │   └── loader.py              # Unified live data loader
+│   ├── data/                      # Market data integrations
+│   │   ├── yfinance_client.py     # yFinance async client (free, live, no API keys)
+│   │   └── loader.py              # Unified async data loader
 │   │
 │   ├── backtest/                  # Backtesting engine
 │   │   ├── metrics.py             # Sharpe, Sortino, Max DD, CAGR, Calmar
@@ -103,16 +102,18 @@ A high WFO score indicates consistent performance across time periods, while a l
 
 ---
 
-AutoQuant uses a multi-agent orchestrated pipeline powered by **LangGraph** and runs entirely locally. It delegates planning, coding, backtesting, and critique to multiple local Ollama AI instances to autonomously discover and refine trading strategies without spending credits.
+AutoQuant uses a multi-agent orchestrated pipeline powered by **LangGraph** and runs entirely locally. It delegates planning, coding, backtesting, and critique to multiple local **Ollama** AI models to autonomously discover and refine trading strategies without requiring any paid API keys or spending credits.
 
 ## Running Locally
 
 ### 1. Requirements
 *   Python 3.10+
-*   Node.js 18+ (for frontend)
+*   Node.js 18+ (for frontend UI)
 *   **Ollama installed and running locally**
     *   Download and install Ollama from [ollama.com](https://ollama.com/)
-    *   Pull the default model via terminal: `ollama pull llama3.2` (or adjust the `DEFAULT_LLM_MODEL` in your `.env`)
+    *   Start the Ollama background service.
+    *   Pull the reasoning model: `ollama pull llama3.2`
+    *   Pull the coding model: `ollama pull deepseek-coder`
 
 ### 2. Environment Setup
 Clone the repository and install the dependencies:
@@ -124,24 +125,18 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
-### 3. Configure Environment Variables
+### 3. Configure Environment Variables (Optional)
 
-Create a `.env` file in the project root:
+Create a `.env` file in the project root if you want to override the default local ports or models. Out of the box, AutoQuant requires **zero API keys**.
 
 ```bash
-# Data Sources (at least one recommended)
-FMP_API_KEY=your_fmp_key
-
-# LLM Provider (at least one required for full pipeline)
-OPENAI_API_KEY=your_openai_key
-ANTHROPIC_API_KEY=your_anthropic_key     # optional
-GOOGLE_API_KEY=your_google_key           # optional
-
-# Pipeline Configuration (optional)
-DEFAULT_LLM_MODEL=gpt-4o
+# ----- Local LLM Setup (Ollama) -----
+OLLAMA_BASE_URL=http://localhost:11434
+DEFAULT_LLM_MODEL=llama3.2
+CODER_LLM_MODEL=deepseek-coder
 ```
 
-> **Note**: The pipeline runs in **mock mode** without API keys — it uses deterministic strategies and synthetic data for testing the scaffold.
+> **Note**: AutoQuant now relies entirely on `yfinance` to fetch live historical data. No Alpha Vantage, FMP, or external cloud LLM accounts are required.
 
 ### 3. Run the Orchestrator
 
