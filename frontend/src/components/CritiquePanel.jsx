@@ -25,7 +25,7 @@ export default function CritiquePanel({ critique }) {
                         }`}
                 >
                     <span className={`h-1.5 w-1.5 rounded-full ${critique.is_success ? 'bg-green-500' : 'bg-red-500'}`} />
-                    {critique.decision?.replace('_', ' ')}
+                    {critique.decision?.replace(/_/g, ' ')}
                 </span>
             </div>
 

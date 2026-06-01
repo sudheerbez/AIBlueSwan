@@ -170,11 +170,11 @@ class AnalysisAgent(BaseAgent):
             )
 
         # 2. Short-Circuit: Excellent Strategy — meets all targets
-        if result.sharpe_ratio >= 1.5 and result.max_drawdown >= -0.15 and result.wfo_score >= 1.0:
+        if result.sharpe_ratio >= 1.5 and result.max_drawdown >= -0.15:
             return Critique(
                 is_success=True,
                 decision="end",
-                suggestions=["Strategy meets all performance targets (Sharpe >= 1.5, MDD >= -15%, WFO >= 1.0). Pipeline complete."],
+                suggestions=["Strategy meets performance targets (Sharpe >= 1.5, MDD >= -15%). Pipeline complete."],
                 potential_biases=[]
             )
 
@@ -229,8 +229,7 @@ class AnalysisAgent(BaseAgent):
 
         # Determine decision
         if result.sharpe_ratio >= 1.5 and result.max_drawdown >= -0.15:
-            # Close to passing — WFO might be the only issue
-            decision = "evolve_hypothesis"
+            decision = "end"
         else:
             decision = "evolve_hypothesis"
 

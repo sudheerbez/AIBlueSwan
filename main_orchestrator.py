@@ -131,7 +131,7 @@ def main() -> None:
     print(f"  Universe:      {args.universe}")
     print(f"  Capital:       ${args.capital:,.0f}")
     print(f"  Max Iterations: {args.iterations}")
-    print(f"  LLM Model:     {os.getenv('DEFAULT_LLM_MODEL', 'gpt-4o')}")
+    print(f"  LLM Model:     {os.getenv('DEFAULT_LLM_MODEL', 'llama3.2')}")
     print()
 
     # Build initial state
@@ -140,6 +140,7 @@ def main() -> None:
         "max_iterations": args.iterations,
         "capital": args.capital,
         "universe": args.universe,
+        "llm_provider": "Ollama",
         "status": "initialized",
         "current_hypothesis": "",
         "factor_code": "",

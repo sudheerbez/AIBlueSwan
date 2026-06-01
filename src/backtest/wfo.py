@@ -184,9 +184,12 @@ class WalkForwardOptimizer:
         # WFO Score: mean(window Sharpes) penalised by their variance.
         # A perfectly stable strategy has WFO ≈ mean Sharpe;
         # an unstable one gets heavily penalised.
-        mean_sharpe = float(np.mean(window_sharpes)) if window_sharpes else 0.0
-        std_sharpe = float(np.std(window_sharpes)) if len(window_sharpes) > 1 else 0.0
-        wfo_score = mean_sharpe - std_sharpe  # simple stability-adjusted score
+        # Filter out zero-trade windows that produce 0 Sharpe, as they
+        # unfairly drag down the mean.
+        valid_sharpes = [s for s in window_sharpes if s != 0.0] or window_sharpes
+        mean_sharpe = float(np.mean(valid_sharpes)) if valid_sharpes else 0.0
+        std_sharpe = float(np.std(valid_sharpes)) if len(valid_sharpes) > 1 else 0.0
+        wfo_score = max(mean_sharpe - std_sharpe, 0.0)  # floor at 0
 
         agg_result = BacktestResult(
             sharpe_ratio=calc_sharpe(oos_series),

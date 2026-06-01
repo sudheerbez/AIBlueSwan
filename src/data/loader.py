@@ -124,17 +124,28 @@ class DataLoader:
         print(f"[DataLoader] All sources failed for {ticker}")
         return None
 
+    @staticmethod
+    def _run_coro(coro):
+        """Safely run an async coroutine from sync context, handling nested loops."""
+        try:
+            loop = asyncio.get_running_loop()
+        except RuntimeError:
+            loop = None
+
+        if loop and loop.is_running():
+            import concurrent.futures
+            with concurrent.futures.ThreadPoolExecutor() as pool:
+                return pool.submit(asyncio.run, coro).result()
+        else:
+            return asyncio.run(coro)
+
     def _try_yfinance(
         self, ticker: str, start: str, end: str
     ) -> Optional[pd.DataFrame]:
         """Try loading from yfinance."""
         try:
             coro = self.yf_client.get_daily_prices(ticker, start=start, end=end)
-            try:
-                loop = asyncio.get_event_loop()
-                df = loop.run_until_complete(coro)
-            except RuntimeError:
-                df = asyncio.run(coro)
+            df = self._run_coro(coro)
 
             if df is not None and not df.empty:
                 df = self._standardise(df)
@@ -153,11 +164,7 @@ class DataLoader:
         """Try loading from Stooq (free, no API key)."""
         try:
             coro = self.stooq_client.get_daily_prices(ticker, start=start, end=end)
-            try:
-                loop = asyncio.get_event_loop()
-                df = loop.run_until_complete(coro)
-            except RuntimeError:
-                df = asyncio.run(coro)
+            df = self._run_coro(coro)
 
             if df is not None and not df.empty:
                 df = self._standardise(df)

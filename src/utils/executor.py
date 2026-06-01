@@ -31,13 +31,13 @@ class ExecutionResult(BaseModel):
 # Timeout handler
 # ---------------------------------------------------------------------------
 
-class TimeoutError(Exception):
+class ExecutionTimeoutError(Exception):
     """Raised when code execution exceeds the allowed time limit."""
     pass
 
 
 def _timeout_handler(signum: int, frame: Any) -> None:
-    raise TimeoutError("Code execution timed out.")
+    raise ExecutionTimeoutError("Code execution timed out.")
 
 
 # ---------------------------------------------------------------------------
@@ -139,7 +139,7 @@ class SafeCodeExecutor:
                 return_value=return_value,
             )
 
-        except TimeoutError as exc:
+        except ExecutionTimeoutError as exc:
             return ExecutionResult(
                 success=False,
                 stdout=stdout_capture.getvalue(),
