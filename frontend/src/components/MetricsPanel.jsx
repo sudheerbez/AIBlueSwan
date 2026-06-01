@@ -8,7 +8,9 @@ export default function MetricsPanel({ metrics, status, iteration }) {
         {
             label: 'Max Drawdown',
             value: metrics?.max_drawdown != null ? `${(metrics.max_drawdown * 100).toFixed(2)}%` : '—',
-            color: metrics?.max_drawdown > -0.2 ? 'neutral' : 'negative',
+            color: metrics?.max_drawdown != null
+                ? (metrics.max_drawdown >= -0.15 ? 'positive' : metrics.max_drawdown >= -0.25 ? 'neutral' : 'negative')
+                : 'neutral',
         },
         {
             label: 'Annual Return',

@@ -28,6 +28,22 @@ export default function App() {
   const [iteration, setIteration] = useState(0);
   const [history, setHistory] = useState([]);
   const wsRef = useRef(null);
+  const statusRef = useRef(status);
+
+  // Keep statusRef in sync
+  useEffect(() => {
+    statusRef.current = status;
+  }, [status]);
+
+  // Cleanup WebSocket on unmount
+  useEffect(() => {
+    return () => {
+      if (wsRef.current) {
+        wsRef.current.close();
+        wsRef.current = null;
+      }
+    };
+  }, []);
 
   // Load history on mount
   useEffect(() => {
@@ -81,7 +97,7 @@ export default function App() {
           }
         },
         () => {
-          if (status === 'running') setStatus('failed');
+          if (statusRef.current === 'running') setStatus('failed');
         }
       );
     } catch (err) {
@@ -93,7 +109,7 @@ export default function App() {
         message: err.message,
       }]);
     }
-  }, [config, status]);
+  }, [config]);
 
   const handleStop = useCallback(() => {
     if (wsRef.current) {
@@ -122,7 +138,7 @@ export default function App() {
                 className="flex h-9 w-full rounded-md border border-input bg-transparent px-3 py-1 text-sm shadow-sm transition-colors file:border-0 file:bg-transparent file:text-sm file:font-medium placeholder:text-muted-foreground focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring disabled:cursor-not-allowed disabled:opacity-50"
                 type="number"
                 value={config.capital}
-                onChange={e => setConfig(c => ({ ...c, capital: e.target.value }))}
+                onChange={e => setConfig(c => ({ ...c, capital: Number(e.target.value) || 0 }))}
                 disabled={status === 'running'}
                 id="input-capital"
               />
@@ -137,7 +153,7 @@ export default function App() {
                 min="1"
                 max="50"
                 value={config.maxIterations}
-                onChange={e => setConfig(c => ({ ...c, maxIterations: e.target.value }))}
+                onChange={e => setConfig(c => ({ ...c, maxIterations: Number(e.target.value) || 1 }))}
                 disabled={status === 'running'}
                 id="input-iterations"
               />
